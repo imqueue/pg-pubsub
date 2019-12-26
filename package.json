@@ -1,0 +1,72 @@
+{
+  "name": "@imqueue/pg-ip-listen",
+  "version": "1.0.0",
+  "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
+  "scripts": {
+    "clean:dts": "find . -name '*.d.ts' -not -wholename '*node_modules*' -type f -delete",
+    "clean:map": "find . -name '*.js.map' -not -wholename '*node_modules*' -type f -delete",
+    "clean:js": "find . -name '*.js' -not -wholename '*node_modules*' -not -wholename '*orm/*' -type f -delete",
+    "clean:build": "rm -rf ./node_modules/@types ; find . -name '*.js.map' -type f -delete ; find . -name '*.ts' -type f -delete",
+    "clean:test": "rm -rf .nyc_output coverage",
+    "clean:doc": "rm -rf docs",
+    "clean": "npm run clean:test && npm run clean:dts && npm run clean:map && npm run clean:js && npm run clean:doc",
+    "build": "tsc",
+    "mocha": "nyc mocha",
+    "show:test": "/usr/bin/env node -e \"require('open')('file://`pwd`/coverage/index.html',{wait:false});\"",
+    "show:doc": "/usr/bin/env node -e \"require('open')('file://`pwd`/docs/index.html',{wait:false});\"",
+    "test": "npm run build && npm run mocha && npm run show:test",
+    "doc": "npm run clean:doc && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output)/**/*\" --mode file --out ./docs . && npm run show:doc",
+    "help": "npm-scripts-help"
+  },
+  "author": "Mykhailo Stadnyk <mikhus@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^7.15.1",
+    "pg-format": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.6",
+    "@types/mocha": "^5.2.7",
+    "@types/mock-require": "^2.0.0",
+    "@types/node": "^13.1.0",
+    "@types/pg": "^7.14.0",
+    "@types/pg-format": "^1.0.0",
+    "@types/sinon": "^7.5.1",
+    "chai": "^4.2.0",
+    "mocha": "^6.2.2",
+    "mocha-lcov-reporter": "^1.3.0",
+    "mock-require": "^3.0.3",
+    "npm-scripts-help": "^0.8.0",
+    "nyc": "^14.1.1",
+    "open": "^7.0.0",
+    "sinon": "^7.5.0",
+    "source-map-support": "^0.5.16",
+    "ts-lint": "^4.5.1",
+    "ts-node": "^8.5.4",
+    "typedoc": "^0.15.5",
+    "typescript": "^3.7.4"
+  },
+  "main": "index.js",
+  "typescript": {
+    "definitions": "index.d.ts"
+  },
+  "nyc": {
+    "check-coverage": true,
+    "extension": [
+      ".ts"
+    ],
+    "exclude": [
+      "**/*.d.ts",
+      "**/test/**"
+    ],
+    "require": [
+      "ts-node/register"
+    ],
+    "reporter": [
+      "html",
+      "text",
+      "text-summary",
+      "lcovonly"
+    ]
+  }
+}

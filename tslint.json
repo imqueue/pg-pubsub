@@ -1,0 +1,24 @@
+{
+  "extends": "tslint:recommended",
+  "rules": {
+    "max-line-length": {
+      "options": [80]
+    },
+    "new-parens": true,
+    "no-arg": true,
+    "no-conditional-assignment": true,
+    "no-consecutive-blank-lines": false,
+    "quotemark": {
+      "options": ["single", "avoid-escape"]
+    },
+    "arrow-parens": false,
+    "no-bitwise": false,
+    "object-literal-sort-keys": false,
+    "no-console": false,
+    "max-classes-per-file": false,
+    "no-unused-expression": false,
+    "interface-name": false,
+    "trailing-comma": true,
+    "no-var-requires": false
+  }
+}
