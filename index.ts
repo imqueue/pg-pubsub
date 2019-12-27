@@ -57,6 +57,7 @@ export declare interface PgPubSub {
     on(event: 'message',       listener: MessageListener   ): this;
     on(event: 'listen',        listener: ChannelListener   ): this;
     on(event: 'unlisten',      listener: ChannelListener   ): this;
+    on(event: 'close',         listener: VoidListener      ): this;
     on(event: string | symbol, listener: AnyListener       ): this;
 }
 
@@ -188,6 +189,7 @@ export class PgPubSub extends EventEmitter {
     public async close(): Promise<void> {
         this.pgClient.removeListener('end', this.reconnect);
         await this.pgClient.end();
+        this.emit('close');
     }
 
     /**
