@@ -1,6 +1,6 @@
 {
   "name": "@imqueue/pg-ip-listen",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
   "keywords": [
     "postgres",
