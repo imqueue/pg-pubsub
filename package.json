@@ -1,6 +1,6 @@
 {
   "name": "@imqueue/pg-ip-listen",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
   "scripts": {
     "prepublishOnly": "npm run build",
