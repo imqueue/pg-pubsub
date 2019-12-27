@@ -1,4 +1,4 @@
-# @imqueue/pg-listen
+# @imqueue/pg-ip-listen
 
 Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support
 
@@ -24,3 +24,70 @@ As easy as:
 ~~~bash
 npm i --save @imqueue/pg-listen
 ~~~ 
+
+## Usage
+
+Create file `debug.ts` as follows:
+
+~~~typescript
+import { PgPubSub } from '@imqueue/pg-ip-listen';
+
+(async () => {
+    const pubSub = new PgPubSub({
+        connectionString: 'posgtres://user:pass@localhost:5432/dbname',
+    });
+
+    pubSub.on('error', console.log);
+    pubSub.on('connect', () => console.log('connected'));
+    pubSub.on('end', () => console.log('closed'));
+    pubSub.on('message', console.log);
+    pubSub.on('listen', console.log);
+
+    await pubSub.connect();
+    await pubSub.listen('TestChannel');
+
+    setInterval(async () => {
+        await pubSub.notify('TestChannel', {
+            some: { json: 'object' },
+            and: true,
+        });
+    }, 5000);
+})();
+~~~
+
+Now try to run this using, for-example, `ts-node` REPL in a several screens:
+
+~~~bash
+ts-node debug.ts
+~~~
+
+You'll find that all running processes connected, but only one of them is 
+listening. Try to kill with `^C` listening process. Check other processes, you
+will find that one of them now listening for messages.
+
+If you need full Pub/Sub across all processes, modify instantiation of `pubSub`
+object like this:
+
+~~~typescript
+const pubSub = new PgPubSub({
+    connectionString: 'posgtres://user:pass@localhost:5432/dbname',
+    oneProcessListener: false,
+});
+~~~
+
+Now re-run experiment.
+
+## Docs
+
+~~~bash
+git clone git@github.com:imqueue/pg-ip-listen.git
+cd pg-ip-listen
+npm i
+npm run doc
+~~~
+
+## License
+
+[ISC](https://github.com/imqueue/pg-ip-listen/blob/master/LICENSE)
+
+Happy Coding!
