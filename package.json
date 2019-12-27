@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
   "scripts": {
+    "prepublishOnly": "npm run build",
     "clean:dts": "find . -name '*.d.ts' -not -wholename '*node_modules*' -type f -delete",
     "clean:map": "find . -name '*.js.map' -not -wholename '*node_modules*' -type f -delete",
     "clean:js": "find . -name '*.js' -not -wholename '*node_modules*' -not -wholename '*orm/*' -type f -delete",
