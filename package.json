@@ -2,6 +2,16 @@
   "name": "@imqueue/pg-ip-listen",
   "version": "1.0.1",
   "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
+  "keywords": [
+    "postgres",
+    "postgresql",
+    "listen",
+    "notify",
+    "ipc-lock",
+    "ip-lock",
+    "inter-process-lock",
+    "events"
+  ],
   "scripts": {
     "prepublishOnly": "npm run build",
     "clean:dts": "find . -name '*.d.ts' -not -wholename '*node_modules*' -type f -delete",
@@ -21,6 +31,14 @@
   },
   "author": "Mykhailo Stadnyk <mikhus@gmail.com>",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/imqueue/pg-ip-listen.git"
+  },
+  "bugs": {
+    "url": "https://github.com/imqueue/pg-ip-listen/issues"
+  },
+  "homepage": "https://github.com/imqueue/pg-ip-listen",
   "dependencies": {
     "pg": "^7.15.1",
     "pg-format": "^1.0.4"
