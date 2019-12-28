@@ -107,6 +107,7 @@ export class PgPubSub extends EventEmitter {
     public async close(): Promise<void> {
         this.pgClient.removeListener('end', this.reconnect);
         await this.pgClient.end();
+        this.pgClient.removeAllListeners();
         this.emit('close');
     }
 
@@ -222,6 +223,21 @@ export class PgPubSub extends EventEmitter {
      */
     public allChannels(): string[] {
         return Object.keys(this.locks);
+    }
+
+    /**
+     * Destroys this object properly, destroying all locks,
+     * closing all connections and removing all event listeners to avoid
+     * memory leaking. So whenever you need to destroy an object
+     * programmatically - use this method.
+     * Note, that after destroy it is broken and should be removed from memory.
+     *
+     * @return {Promise<void>}
+     */
+    public async destroy(): Promise<void> {
+        await Promise.all([this.close(), PgIpLock.destroy()]);
+        this.channels.removeAllListeners();
+        this.removeAllListeners();
     }
 
     /**

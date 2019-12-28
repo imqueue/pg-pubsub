@@ -18,7 +18,7 @@ import '../mocks';
 import { expect } from 'chai';
 import { Client } from 'pg';
 import * as sinon from 'sinon';
-import { PgClient, PgPubSub } from '../../src';
+import { PgClient, PgIpLock, PgPubSub } from '../../src';
 
 before(() => process.setMaxListeners(1000));
 
@@ -290,6 +290,21 @@ describe('PgPubSub', () => {
                     'ChannelOne', 'ChannelTwo',
                     'ChannelFive', 'ChannelSix',
                 ]);
+            });
+        });
+    });
+    describe('destroy()', () => {
+        it('should properly handle destruction', async () => {
+            const spies = [
+                sinon.spy(pubSub, 'close'),
+                sinon.spy(pubSub, 'removeAllListeners'),
+                sinon.spy(pubSub.channels, 'removeAllListeners'),
+                sinon.spy(PgIpLock, 'destroy'),
+            ];
+            await pubSub.destroy();
+            spies.forEach(spy => {
+                expect(spy.calledOnce).to.be.true;
+                spy.restore();
             });
         });
     });

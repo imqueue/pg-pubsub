@@ -83,6 +83,10 @@ export class PgIpLock {
             ]);
         }
 
+        if (this.notifyHandler) {
+            this.pgClient.on('notification', this.notifyHandler);
+        }
+
         await this.listen();
     }
 
@@ -181,6 +185,10 @@ export class PgIpLock {
      * @return {Promise<void>}
      */
     public async destroy(): Promise<void> {
+        if (this.notifyHandler) {
+            this.pgClient.off('notification', this.notifyHandler);
+        }
+
         await Promise.all([this.unlisten(), this.release()]);
     }
 
