@@ -13,8 +13,5 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-export * from './helpers';
-export * from './PgPubSub';
-export * from './IPCLock';
-export * from './types';
-export * from './constants';
+import './mocks';
+import './src';

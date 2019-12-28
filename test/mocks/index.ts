@@ -20,11 +20,11 @@ import * as pg from './pg';
 mock('../../src/constants', constants);
 mock('pg', pg);
 
-export class FakeError extends Error {}
-
 const printError = console.error;
 
 console.error = ((...args: any[]) => {
     args = args.filter(arg => !(arg instanceof FakeError));
     args.length && printError(...args);
 });
+
+export class FakeError extends Error {}
