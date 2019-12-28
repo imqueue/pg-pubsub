@@ -18,7 +18,7 @@ import '../mocks';
 import { expect } from 'chai';
 import { Client } from 'pg';
 import * as sinon from 'sinon';
-import { PgPubSub } from '../../src';
+import { PgClient, PgPubSub } from '../../src';
 
 before(() => process.setMaxListeners(1000));
 
@@ -75,7 +75,6 @@ describe('PgPubSub', () => {
             });
         });
     });
-
     describe('reconnect', () => {
         it('should support automatic reconnect', done => {
             let counter = 0;
@@ -123,7 +122,6 @@ describe('PgPubSub', () => {
             }, 210);
         });
     });
-
     describe('close()', () => {
         it('should not reconnect if called', done => {
             let counter = 0;
@@ -137,7 +135,6 @@ describe('PgPubSub', () => {
             }, 210);
         });
     });
-
     describe('listen()', () => {
         it('should call SQL LISTEN "channel" command', async () => {
             pubSub.options.singleListener = true;
@@ -190,7 +187,6 @@ describe('PgPubSub', () => {
             });
         });
     });
-
     describe('unlisten()', () => {
         it('should call SQL UNLISTEN "channel" command', async () => {
             pubSub.options.singleListener = true;
@@ -207,7 +203,6 @@ describe('PgPubSub', () => {
             expect(/^UNLISTEN\s+"Test"/.test(arg.trim()));
         });
     });
-
     describe('unlistenAll()', () => {
         it('should call SQL UNLISTEN * command', async () => {
             pubSub.options.singleListener = true;
@@ -224,13 +219,78 @@ describe('PgPubSub', () => {
             expect(/^UNLISTEN\s+\*/.test(arg.trim()));
         });
     });
-
     describe('notify()', () => {
         it('should call SQL NOTIFY command', async () => {
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.notify('Test', { a: 'b' });
             const [{ args: [arg, ] }] = spy.getCalls();
             expect(arg.trim()).equals(`NOTIFY "Test", '{"a":"b"}'`);
+        });
+    });
+    describe('Channels API', () => {
+        let pubSub1: PgPubSub;
+        let pubSub2: PgPubSub;
+        let pubSub3: PgPubSub;
+
+        beforeEach(async () => {
+            const pgClientShared = new Client() as PgClient;
+
+            pubSub1 = new PgPubSub({ pgClient: pgClientShared });
+            await pubSub1.connect();
+            await pubSub1.listen('ChannelOne');
+            await pubSub1.listen('ChannelTwo');
+
+            pubSub2 = new PgPubSub({ pgClient: new Client() });
+            await pubSub2.connect();
+            await pubSub2.listen('ChannelThree');
+            await pubSub2.listen('ChannelFour');
+
+            pubSub3 = new PgPubSub({ pgClient: pgClientShared });
+            await pubSub3.connect();
+            await pubSub3.listen('ChannelFive');
+            await pubSub3.listen('ChannelSix');
+            await pubSub3.notify('ChannelOne', {});
+            await pubSub3.notify('ChannelTwo', {});
+
+            // make sure all async events handled
+            await new Promise(resolve => setTimeout(resolve, 10));
+        });
+
+        describe('activeChannels()', () => {
+            it('should return active channels only', () => {
+                expect(pubSub1.activeChannels()).to.have.same.members([
+                    'ChannelOne', 'ChannelTwo',
+                ]);
+                expect(pubSub2.activeChannels()).to.have.same.members([
+                    'ChannelThree', 'ChannelFour',
+                ]);
+                expect(pubSub3.activeChannels()).to.have.same.members([
+                    'ChannelFive', 'ChannelSix',
+                ]);
+            });
+        });
+        describe('inactiveChannels()', () => {
+            it('should return inactive channels only', () => {
+                expect(pubSub1.inactiveChannels()).deep.equals([]);
+                expect(pubSub2.inactiveChannels()).deep.equals([]);
+                expect(pubSub3.inactiveChannels()).to.have.same.members([
+                    'ChannelOne', 'ChannelTwo',
+                ]);
+            });
+        });
+        describe('allChannels()', () => {
+            it('should return all channels', () => {
+                expect(pubSub1.allChannels()).to.have.same.members([
+                    'ChannelOne', 'ChannelTwo',
+                ]);
+                expect(pubSub2.allChannels()).to.have.same.members([
+                    'ChannelThree', 'ChannelFour',
+                ]);
+                expect(pubSub3.allChannels()).to.have.same.members([
+                    'ChannelOne', 'ChannelTwo',
+                    'ChannelFive', 'ChannelSix',
+                ]);
+            });
         });
     });
 });

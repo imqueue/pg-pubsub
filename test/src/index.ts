@@ -17,4 +17,4 @@
 import '../mocks';
 import './helpers';
 import './PgPubSub';
-import './IPCLock';
+import './PgIpLock';

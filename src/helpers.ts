@@ -54,7 +54,11 @@ export function pack(
  * @param {AnyLogger} [logger] - logger to handle errors logging with
  * @return {AnyJson}
  */
-export function unpack(input: string, logger?: AnyLogger): AnyJson {
+export function unpack(input?: string, logger?: AnyLogger): AnyJson {
+    if (typeof input !== 'string') {
+        return null;
+    }
+
     try {
         return JSON.parse(input);
     } catch (err) {

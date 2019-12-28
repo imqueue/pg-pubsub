@@ -15,6 +15,6 @@
  */
 export * from './helpers';
 export * from './PgPubSub';
-export * from './IPCLock';
+export * from './PgIpLock';
 export * from './types';
 export * from './constants';

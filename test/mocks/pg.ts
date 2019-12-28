@@ -14,6 +14,9 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 import { EventEmitter } from 'events';
+import { Notification } from 'pg';
+
+let id = 0;
 
 export interface ClientConfig {
     connectionString?: string;
@@ -22,6 +25,7 @@ export interface ClientConfig {
 export class Client extends EventEmitter {
     public constructor(options: ClientConfig) {
         super();
+        this.setMaxListeners(Infinity);
     }
     public connect() {
         this.emit('connect');
@@ -30,6 +34,22 @@ export class Client extends EventEmitter {
         this.emit('end');
     }
     public async query(queryText: string) {
+        if (/^NOTIFY\s/.test(queryText)) {
+            let [, channel, payload] = queryText.split(/\s+/);
+
+            channel = channel.replace(/",?/g, '');
+            payload = payload.replace(/^'|'$/g, '');
+
+            const message: Notification = {
+                channel,
+                payload,
+                processId: ++id,
+            };
+
+            this.emit('notification', message);
+            return ;
+        }
         return { rows: [] };
     }
 }
+

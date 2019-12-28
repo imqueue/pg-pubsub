@@ -13,6 +13,7 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+export const SCHEMA_NAME      = 'pgip_lock';
 export const SHUTDOWN_TIMEOUT = 500;
 export const RETRY_DELAY      = 100;
 export const RETRY_LIMIT      = Infinity;

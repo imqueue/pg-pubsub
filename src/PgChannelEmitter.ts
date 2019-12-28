@@ -13,14 +13,16 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import { AnyJson } from './AnyJson';
+import { EventEmitter } from 'events';
+import { ChannelListener } from './types';
 
-export type VoidListener = () => void;
-export type ReconnectListener = (retries: number) => void;
-export type ErrorListener = (err: Error) => void;
-export type MessageListener = (channel: string, message: AnyJson) => void;
-export type ChannelsListener = (channels: string[]) => void;
-export type ChannelListener = (payload: AnyJson) => void;
-export type AnyListener = (...args: any[]) => void;
+export declare interface PgChannelEmitter {
+    on(event: string, listener: ChannelListener): this;
+}
 
-
+/**
+ * Class PgChannelEmitter
+ * Implements event emitting/subscribing on PostgreSQL LISTEN/NOTIFY
+ * named channels.
+ */
+export class PgChannelEmitter extends EventEmitter {}

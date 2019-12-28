@@ -21,18 +21,20 @@ import {
     AnyJson,
     AnyListener,
     AnyLogger,
-    ChannelListener,
+    ChannelsListener,
     DefaultOptions,
     ErrorListener,
-    IPCLock,
     MessageListener,
     pack,
     PgClient,
+    PgIpLock,
     PgPubSubOptions,
     ReconnectListener,
+    RX_LOCK_CHANNEL,
     unpack,
     VoidListener,
 } from '.';
+import { PgChannelEmitter } from './PgChannelEmitter';
 import Timeout = NodeJS.Timeout;
 
 /**
@@ -40,7 +42,7 @@ import Timeout = NodeJS.Timeout;
  */
 export declare interface PgPubSub {
     on(event: 'end' | 'connect' | 'close', listener: VoidListener      ): this;
-    on(event: 'listen' | 'unlisten',       listener: ChannelListener   ): this;
+    on(event: 'listen' | 'unlisten',       listener: ChannelsListener  ): this;
     on(event: 'error',                     listener: ErrorListener     ): this;
     on(event: 'reconnect',                 listener: ReconnectListener ): this;
     on(event: 'message',                   listener: MessageListener   ): this;
@@ -55,8 +57,9 @@ export class PgPubSub extends EventEmitter {
 
     public readonly pgClient: PgClient;
     public readonly options: PgPubSubOptions;
+    public readonly channels: PgChannelEmitter = new PgChannelEmitter();
 
-    private locks: { [channel: string]: IPCLock } = {};
+    private locks: { [channel: string]: PgIpLock } = {};
     private retry: number = 0;
 
     /**
@@ -189,22 +192,61 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
+     * Returns list of all active subscribed channels
+     *
+     * @return {string[]}
+     */
+    public activeChannels(): string[] {
+        return Object.keys(this.locks).filter(channel =>
+            this.locks[channel].isAcquired(),
+        );
+    }
+
+    /**
+     * Returns list of all inactive channels (those which are known, but
+     * not actively listening at a time)
+     *
+     * @return {string[]}
+     */
+    public inactiveChannels(): string[] {
+        return Object.keys(this.locks).filter(channel =>
+            !this.locks[channel].isAcquired(),
+        );
+    }
+
+    /**
+     * Returns list of all known channels, despite the fact they are listening
+     * (active) or not (inactive).
+     *
+     * @return {string[]}
+     */
+    public allChannels(): string[] {
+        return Object.keys(this.locks);
+    }
+
+    /**
      * Database notification event handler
      *
      * @param {Notification} message - database message data
      * @return {Promise<void>}
      */
     private async onNotification(message: Notification): Promise<void> {
+        if (RX_LOCK_CHANNEL.test(message.channel)) {
+            // as we use the same connection with locks mechanism
+            // we should avoid pub/sub client to parse lock channels data
+            return ;
+        }
+
         if (this.options.singleListener) {
             if (!(await this.lock(message.channel)).isAcquired()) {
                 return; // we are not really a listener
             }
         }
 
-        this.emit('message', message.channel, message.payload
-            ? unpack(message.payload, this.logger)
-            : undefined,
-        );
+        const payload = unpack(message.payload);
+
+        this.emit('message', message.channel, payload);
+        this.channels.emit(message.channel, payload);
     }
 
     /**
@@ -266,11 +308,11 @@ export class PgPubSub extends EventEmitter {
      *
      * @access private
      * @param {string} channel
-     * @return {Promise<IPCLock>}
+     * @return {Promise<PgIpLock>}
      */
-    private async lock(channel: string): Promise<IPCLock> {
+    private async lock(channel: string): Promise<PgIpLock> {
         if (!this.locks[channel]) {
-            this.locks[channel] = new IPCLock(
+            this.locks[channel] = new PgIpLock(
                 channel, this.pgClient, this.logger,
             );
             await this.locks[channel].init();
