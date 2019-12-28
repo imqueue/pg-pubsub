@@ -172,13 +172,21 @@ Locking mechanism utilazes the same connection and LISTEN/NOTIFY commands, so
 it won't consume any additional computing resources.
 
 Also, if you already working with `pg` library in your application and you
-have a need to keep only single connection using, you can bypass it directly
-as `pgClient` option. But that is not always a good idea. You have to understand
-what you are doing and what your need is:
+have a need to stay for some reason with that single connection usage, you 
+can bypass it directly as `pgClient` option. But that is not always a good idea.
+Normally, you have to understand what you are doing and why.
 
 ~~~typescript
-const pubSub = new PgPubSub({ pgClient: existingClient, singleListener: true });
+const pubSub = new PgPubSub({ pgClient: existingClient });
 ~~~
+
+> **NOTE:** With LISTEN connections it is really hard to utilize power of
+> connection pool as long as it will require additional implementation of
+> some connection switching mechanism using listen/unlisten and some specific
+> watchers which may fall into need of re-implementing pools from scratch. So,
+> that is why most of existing listen/notify solutions based on a single
+> connection approach. And this library as well. It is just more simple and 
+> reliable.
 
 ## Full API Docs
 
