@@ -26,7 +26,7 @@ to have only pub/sub on entire subset of running concurrent processes.
 As easy as:
 
 ~~~bash
-npm i --save @imqueue/pg-listen
+npm i --save @imqueue/pg-pubsub
 ~~~ 
 
 ## Usage
