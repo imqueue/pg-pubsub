@@ -19,7 +19,7 @@ import { expect } from 'chai';
 import { Client } from 'pg';
 import * as sinon from 'sinon';
 import { SinonSandbox, SinonSpy } from 'sinon';
-import { IPCLock, SHUTDOWN_TIMEOUT } from '../../src';
+import { PgIpLock, SCHEMA_NAME, SHUTDOWN_TIMEOUT } from '../../src';
 import { PgClient } from '../../src/types';
 
 before(() => process.setMaxListeners(1000));
@@ -31,20 +31,20 @@ after(() => {
 
 describe('IPCLock', () => {
     let client: PgClient;
-    let lock: IPCLock;
+    let lock: PgIpLock;
 
     beforeEach(() => {
         client = new Client() as PgClient;
-        lock = new IPCLock('LockTest', client, console);
+        lock = new PgIpLock('LockTest', client, console);
     });
 
     it('should be a class', () => {
-        expect(typeof IPCLock).equals('function');
+        expect(typeof PgIpLock).equals('function');
     });
 
     describe('constructor()', () => {
         it('should accept channel name and pg client as arguments', () => {
-            expect(lock.channel).equals(`${IPCLock.name}_LockTest`);
+            expect(lock.channel).equals(`__${PgIpLock.name}__:LockTest`);
             expect(lock.pgClient).equals(client);
         });
     });
@@ -90,7 +90,7 @@ describe('IPCLock', () => {
     describe('schemaExists()', () => {
         it('should return true if schema exists in db', async () => {
             const stub = sinon.stub(client, 'query')
-                .returns({ rows: [{ schema: IPCLock.schemaName }] } as any);
+                .returns({ rows: [{ schema: SCHEMA_NAME }] } as any);
             expect(await (lock as any).schemaExists()).to.be.true;
             stub.restore();
         });
@@ -144,7 +144,7 @@ describe('IPCLock', () => {
             const spy = sinon.spy();
             lock.onRelease(spy);
             client.emit('notification', {
-                channel: `${IPCLock.name}_LockTest`,
+                channel: `__${PgIpLock.name}__:LockTest`,
                 payload: '{"a":"b"}',
             });
             expect(spy.calledOnce).to.be.true;
@@ -157,7 +157,7 @@ describe('IPCLock', () => {
 
         beforeEach(() => {
             sandbox = sinon.createSandbox();
-            destroy = sandbox.stub(IPCLock, 'destroy').resolves();
+            destroy = sandbox.stub(PgIpLock, 'destroy').resolves();
             exit = sandbox.stub(process, 'exit');
         });
         afterEach(() => sandbox.restore());

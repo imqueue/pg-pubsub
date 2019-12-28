@@ -76,5 +76,9 @@ describe('helpers', () => {
             expect(unpack('true')).equals(true);
             expect(unpack('123.55')).equals(123.55);
         });
+        it('should return null on non-string or undefined input', () => {
+            expect(unpack()).to.be.null;
+            expect(unpack(global as any)).to.be.null;
+        });
     });
 });

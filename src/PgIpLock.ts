@@ -15,15 +15,22 @@
  */
 import { Notification } from 'pg';
 import { ident, literal } from 'pg-format';
-import { SHUTDOWN_TIMEOUT } from './constants';
+import { SCHEMA_NAME, SHUTDOWN_TIMEOUT } from './constants';
 import { AnyLogger, PgClient } from './types';
 
 /**
- * Class IPCLock - implements manageable inter-process locking mechanism over
+ * Class PgIpLock - implements manageable inter-process locking mechanism over
  * existing PostgreSQL connection for a given LISTEN channel
  */
-export class IPCLock {
-    public static readonly schemaName: string = 'pgip_listen';
+export class PgIpLock {
+    /**
+     * DB lock schema name getter
+     *
+     * @return {string}
+     */
+    public static get schemaName() {
+        return ident(SCHEMA_NAME);
+    }
 
     /**
      * Calls destroy() on all created instances at a time
@@ -31,7 +38,7 @@ export class IPCLock {
      * @return {Promise<void>}
      */
     public static async destroy(): Promise<void> {
-        await Promise.all(IPCLock.instances.map(lock => lock.destroy()));
+        await Promise.all(PgIpLock.instances.map(lock => lock.destroy()));
     }
 
     /**
@@ -40,10 +47,10 @@ export class IPCLock {
      * @return {boolean}
      */
     public static hasInstances(): boolean {
-        return IPCLock.instances.length > 0;
+        return PgIpLock.instances.length > 0;
     }
 
-    private static instances: IPCLock[] = [];
+    private static instances: PgIpLock[] = [];
     private acquired: boolean = false;
     private notifyHandler: (message: Notification) => void;
 
@@ -58,8 +65,8 @@ export class IPCLock {
         public readonly pgClient: PgClient,
         public readonly logger: AnyLogger,
     ) {
-        this.channel = `${IPCLock.name}_${channel}`;
-        IPCLock.instances.push(this);
+        this.channel = `__${PgIpLock.name}__:${channel}`;
+        PgIpLock.instances.push(this);
     }
 
     /**
@@ -94,8 +101,10 @@ export class IPCLock {
 
         this.notifyHandler = message => {
             // istanbul ignore else
+            // we should skip messages from pub/sub channels and listen
+            // only to those which are ours
             if (message.channel === this.channel) {
-                handler(this.channel.replace(RX_CLEAN_CHANNEL, ''));
+                handler(this.channel.replace(RX_LOCK_CHANNEL, ''));
             }
         };
 
@@ -113,13 +122,13 @@ export class IPCLock {
             // it will not throw on successful insert
             // noinspection SqlResolve
             await this.pgClient.query(`
-                INSERT INTO ${IPCLock.schemaName}.lock (channel, app)
+                INSERT INTO ${PgIpLock.schemaName}.lock (channel, app)
                 VALUES (
                     ${literal(this.channel)},
                     ${literal(this.pgClient.appName)}
                 ) ON CONFLICT (channel) DO
-                UPDATE SET app = ${IPCLock.schemaName}.deadlock_check(
-                    ${IPCLock.schemaName}.lock.app,
+                UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
+                    ${PgIpLock.schemaName}.lock.app,
                     ${literal(this.pgClient.appName)}
                 )
             `);
@@ -149,7 +158,7 @@ export class IPCLock {
 
         // noinspection SqlResolve
         await this.pgClient.query(`
-            DELETE FROM ${IPCLock.schemaName}.lock
+            DELETE FROM ${PgIpLock.schemaName}.lock
             WHERE channel=${literal(this.channel)}
         `);
 
@@ -202,7 +211,7 @@ export class IPCLock {
         const { rows } = await this.pgClient.query(`
             SELECT schema_name
             FROM information_schema.schemata
-            WHERE schema_name = '${IPCLock.schemaName}'
+            WHERE schema_name = '${PgIpLock.schemaName}'
         `);
 
         return (rows.length > 0);
@@ -214,7 +223,7 @@ export class IPCLock {
      * @return {Promise<void>}
      */
     private async createSchema(): Promise<void> {
-        await this.pgClient.query(`CREATE SCHEMA ${IPCLock.schemaName}`);
+        await this.pgClient.query(`CREATE SCHEMA ${PgIpLock.schemaName}`);
     }
 
     /**
@@ -224,22 +233,22 @@ export class IPCLock {
      */
     private async createLock(): Promise<void> {
         await this.pgClient.query(`
-            CREATE TABLE ${IPCLock.schemaName}.lock (
+            CREATE TABLE ${PgIpLock.schemaName}.lock (
                 channel CHARACTER VARYING NOT NULL PRIMARY KEY,
                 app CHARACTER VARYING NOT NULL)
         `);
         // noinspection SqlResolve
         await this.pgClient.query(`
-            CREATE FUNCTION ${IPCLock.schemaName}.notify_lock()
+            CREATE FUNCTION ${PgIpLock.schemaName}.notify_lock()
             RETURNS TRIGGER LANGUAGE PLPGSQL AS $$
             BEGIN PERFORM PG_NOTIFY(OLD.channel, '1'); RETURN OLD; END; $$
         `);
         // noinspection SqlResolve
         await this.pgClient.query(`
             CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
-            AFTER DELETE ON ${IPCLock.schemaName}.lock
+            AFTER DELETE ON ${PgIpLock.schemaName}.lock
             DEFERRABLE INITIALLY DEFERRED
-            FOR EACH ROW EXECUTE PROCEDURE ${IPCLock.schemaName}.notify_lock()
+            FOR EACH ROW EXECUTE PROCEDURE ${PgIpLock.schemaName}.notify_lock()
         `);
     }
 
@@ -250,7 +259,7 @@ export class IPCLock {
      */
     private async createDeadlockCheck() {
         await this.pgClient.query(`
-            CREATE FUNCTION ${IPCLock.schemaName}.deadlock_check(
+            CREATE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
                 old_app TEXT,
                 new_app TEXT)
             RETURNS TEXT LANGUAGE PLPGSQL AS $$
@@ -269,9 +278,9 @@ export class IPCLock {
     }
 }
 
-const RX_CLEAN_CHANNEL: RegExp = new RegExp(`^${IPCLock.name}_`);
-let timer: any;
+export const RX_LOCK_CHANNEL: RegExp = new RegExp(`^__${PgIpLock.name}__:`);
 
+let timer: any;
 /**
  * Performs graceful shutdown of running process
  * releasing all instantiated locks
@@ -283,16 +292,16 @@ async function terminate() {
     timer = setTimeout(() => process.exit(code), SHUTDOWN_TIMEOUT);
 
     // istanbul ignore if
-    if (!IPCLock.hasInstances()) {
+    if (!PgIpLock.hasInstances()) {
         return ;
     }
 
-    try { await IPCLock.destroy(); } catch (err) {
+    try { await PgIpLock.destroy(); } catch (err) {
         code = 1;
 
         // istanbul ignore next
-        (IPCLock.hasInstances()
-            ? (IPCLock as any).instances[0].logger
+        (PgIpLock.hasInstances()
+            ? (PgIpLock as any).instances[0].logger
             : console
         ).error(err);
     }
