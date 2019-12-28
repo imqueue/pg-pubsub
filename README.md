@@ -119,8 +119,11 @@ starts handle payloads right up on connect time.
 You can send messages in many different ways. For example, you may create
 database triggers which would notify all connected clients with some
 specific updates. Or you may use a database only as notifications engine
-and generate notifications on application level. Here is how you can send
-notification with `PgPubSub` API:
+and generate notifications on application level. Or you may combine both
+approaches - there are no limits!
+
+Here is how you can send notification with `PgPubSub` API (aka application 
+level of notifications):
 
 ~~~typescript
 pubSub.notify('UserChanged', {
