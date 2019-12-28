@@ -6,7 +6,7 @@ Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support
 
 With services on scale it might be a need to make sure only single service of
 many similar running listening to database notifications. Here comes idea of
-inter process communication (IPC) locking mechanism, which would guarantee that
+inter process (IP) locking mechanism, which would guarantee that
 only one process handles the notifications and if it dies, next one which is
 live will immediately handle listening.
 
