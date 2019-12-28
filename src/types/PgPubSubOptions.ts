@@ -14,12 +14,18 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 import { Client, ClientConfig } from 'pg';
-import { IS_ONE_PROCESS, RETRY_DELAY, RETRY_LIMIT } from '../constants';
+import {
+    ACQUIRE_INTERVAL,
+    IS_ONE_PROCESS,
+    RETRY_DELAY,
+    RETRY_LIMIT,
+} from '../constants';
 
 export interface PgPubSubOptions extends ClientConfig {
     pgClient?: Client;
     retryDelay: number;
     retryLimit: number;
+    acquireInterval: number;
     singleListener: boolean;
 }
 
@@ -27,4 +33,5 @@ export const DefaultOptions: PgPubSubOptions = {
     retryLimit: RETRY_LIMIT,
     retryDelay: RETRY_DELAY,
     singleListener: IS_ONE_PROCESS,
+    acquireInterval: ACQUIRE_INTERVAL,
 };
