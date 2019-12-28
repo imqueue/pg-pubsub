@@ -146,7 +146,7 @@ With services on scale in such systems it might be a need to make sure only
 single service of many similar running is listening to particular database
 notifications.
 Here why comes an idea of inter process (IP) locking mechanism, which would
-guarantee that only one process handles the notifications and if it dies,
+guarantee that only one process handles notifications and if it dies,
 next one which is live will immediately handle listening.
 
 This library comes with this option turned on by default. To make it work in
