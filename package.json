@@ -3,14 +3,18 @@
   "version": "1.0.3",
   "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
   "keywords": [
-    "postgres",
-    "postgresql",
     "listen",
     "notify",
-    "ipc-lock",
-    "ip-lock",
-    "inter-process-lock",
-    "events"
+    "postgres",
+    "postgresql",
+    "pg-listen",
+    "pg-notify",
+    "pubsub",
+    "publish",
+    "subscribe",
+    "events",
+    "publish-subscribe",
+    "inter-process-lock"
   ],
   "scripts": {
     "prepublishOnly": "npm run build",
