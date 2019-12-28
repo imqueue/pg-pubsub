@@ -33,6 +33,8 @@ you're going to use LISTEN/NOTIFY in your node app:
     processes (which happens on scales) which would receive notifications
     and with guarantee that if it looses connection or dies - another similar
     process replaces it as listener.
+ 4. It comes with support of **graceful shutdown** so you may don't care about
+    this.
 
 ## Install
 
@@ -201,10 +203,10 @@ function printChannels(pubSub: PgPubSub) {
         connectionString: 'postgres://postgres@localhost:5432/postgres',
     });
 
-    pubSub.on('error', console.log);
-    pubSub.on('connect', () => console.log('connected'));
-    pubSub.on('end', () => console.log('closed'));
-    pubSub.on('listen', console.log);
+    pubSub.on('error', console.error);
+    pubSub.on('connect', () => console.info('Database connected!'));
+    pubSub.on('end', () => console.warn('Connection closed!'));
+    pubSub.on('listen', channel => console.info(`Listening ${channel}...`));
     pubSub.channels.on(CHANNEL, console.log);
 
     await pubSub.connect();
