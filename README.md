@@ -1,7 +1,7 @@
 # @imqueue/pg-pubsub
 
 [![Build Status](https://travis-ci.com/imqueue/pg-pubsub.svg?branch=master)](https://travis-ci.com/imqueue/pg-pubsub)
-[![codebeat badge](https://codebeat.co/badges/6530d335-8799-4485-9e41-8c7e18d1f2a6)](https://codebeat.co/projects/github-com-imqueue-pg-ip-listen-master)
+[![codebeat badge](https://codebeat.co/badges/579f6d7c-df61-4bc2-aa2e-d4fa9a3abf5a)](https://codebeat.co/projects/github-com-imqueue-pg-pubsub-master)
 [![Coverage Status](https://coveralls.io/repos/github/imqueue/pg-pubsub/badge.svg?branch=master)](https://coveralls.io/github/imqueue/pg-pubsub?branch=master)
 
 **Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support**
