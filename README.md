@@ -1,4 +1,4 @@
-# @imqueue/pg-ip-listen
+# @imqueue/pg-pubsub
 
 Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support
 
@@ -30,7 +30,7 @@ npm i --save @imqueue/pg-listen
 Create file `debug.ts` as follows:
 
 ~~~typescript
-import { PgPubSub } from '@imqueue/pg-ip-listen';
+import { PgPubSub } from '@imqueue/pg-pubsub';
 
 (async () => {
     const pubSub = new PgPubSub({
@@ -80,14 +80,14 @@ Now re-run experiment.
 ## Docs
 
 ~~~bash
-git clone git@github.com:imqueue/pg-ip-listen.git
-cd pg-ip-listen
+git clone git@github.com:imqueue/pg-pubsub.git
+cd pg-pubsub
 npm i
 npm run doc
 ~~~
 
 ## License
 
-[ISC](https://github.com/imqueue/pg-ip-listen/blob/master/LICENSE)
+[ISC](https://github.com/imqueue/pg-pubsub/blob/master/LICENSE)
 
 Happy Coding!

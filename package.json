@@ -1,5 +1,5 @@
 {
-  "name": "@imqueue/pg-ip-listen",
+  "name": "@imqueue/pg-pubsub",
   "version": "1.0.3",
   "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
   "keywords": [
@@ -33,12 +33,12 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git://github.com/imqueue/pg-ip-listen.git"
+    "url": "git://github.com/imqueue/pg-pubsub.git"
   },
   "bugs": {
-    "url": "https://github.com/imqueue/pg-ip-listen/issues"
+    "url": "https://github.com/imqueue/pg-pubsub/issues"
   },
-  "homepage": "https://github.com/imqueue/pg-ip-listen",
+  "homepage": "https://github.com/imqueue/pg-pubsub",
   "dependencies": {
     "pg": "^7.16.0",
     "pg-format": "^1.0.4",
