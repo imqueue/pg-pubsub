@@ -33,7 +33,7 @@
     "doc": "npm run clean:doc && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output)/**/*\" --mode file --out ./docs . && npm run show:doc",
     "help": "npm-scripts-help"
   },
-  "author": "Mykhailo Stadnyk <mikhus@gmail.com>",
+  "author": "imqueue.com <support@imqueue.com>",
   "license": "ISC",
   "repository": {
     "type": "git",
