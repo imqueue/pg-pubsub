@@ -13,18 +13,7 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import * as mock from 'mock-require';
-import * as constants from './constants';
-import * as pg from './pg';
-
-mock('../../src/constants', constants);
-mock('pg', pg);
-
-export class FakeError extends Error {}
-
-const printError = console.error;
-
-console.error = ((...args: any[]) => {
-    args = args.filter(arg => !(arg instanceof FakeError));
-    args.length && printError(...args);
-});
+export const SHUTDOWN_TIMEOUT = 10;
+export const RETRY_DELAY      = 10;
+export const RETRY_LIMIT      = 3;
+export const IS_ONE_PROCESS   = true;

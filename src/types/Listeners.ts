@@ -13,18 +13,13 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import * as mock from 'mock-require';
-import * as constants from './constants';
-import * as pg from './pg';
+import { AnyJson } from './AnyJson';
 
-mock('../../src/constants', constants);
-mock('pg', pg);
+export type VoidListener = () => void;
+export type ReconnectListener = (retries: number) => void;
+export type ErrorListener = (err: Error) => void;
+export type MessageListener = (channel: string, message: AnyJson) => void;
+export type ChannelListener = (channels: string[]) => void;
+export type AnyListener = (...args: any[]) => void;
 
-export class FakeError extends Error {}
 
-const printError = console.error;
-
-console.error = ((...args: any[]) => {
-    args = args.filter(arg => !(arg instanceof FakeError));
-    args.length && printError(...args);
-});

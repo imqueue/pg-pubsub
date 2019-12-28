@@ -13,18 +13,18 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import * as mock from 'mock-require';
-import * as constants from './constants';
-import * as pg from './pg';
+import { Client, ClientConfig } from 'pg';
+import { IS_ONE_PROCESS, RETRY_DELAY, RETRY_LIMIT } from '../constants';
 
-mock('../../src/constants', constants);
-mock('pg', pg);
+export interface PgPubSubOptions extends ClientConfig {
+    pgClient?: Client;
+    retryDelay: number;
+    retryLimit: number;
+    singleListener: boolean;
+}
 
-export class FakeError extends Error {}
-
-const printError = console.error;
-
-console.error = ((...args: any[]) => {
-    args = args.filter(arg => !(arg instanceof FakeError));
-    args.length && printError(...args);
-});
+export const DefaultOptions: PgPubSubOptions = {
+    retryLimit: RETRY_LIMIT,
+    retryDelay: RETRY_DELAY,
+    singleListener: IS_ONE_PROCESS,
+};

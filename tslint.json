@@ -19,6 +19,7 @@
     "no-unused-expression": false,
     "interface-name": false,
     "trailing-comma": true,
-    "no-var-requires": false
+    "no-var-requires": false,
+    "semicolon": true
   }
 }

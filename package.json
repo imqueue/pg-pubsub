@@ -40,29 +40,31 @@
   },
   "homepage": "https://github.com/imqueue/pg-ip-listen",
   "dependencies": {
-    "pg": "^7.15.1",
-    "pg-format": "^1.0.4"
+    "pg": "^7.16.0",
+    "pg-format": "^1.0.4",
+    "uuid": "^3.3.3"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.6",
+    "@types/chai": "^4.2.7",
     "@types/mocha": "^5.2.7",
     "@types/mock-require": "^2.0.0",
-    "@types/node": "^13.1.0",
+    "@types/node": "^13.1.1",
     "@types/pg": "^7.14.0",
     "@types/pg-format": "^1.0.0",
     "@types/sinon": "^7.5.1",
+    "@types/uuid": "^3.4.6",
     "chai": "^4.2.0",
     "mocha": "^6.2.2",
     "mocha-lcov-reporter": "^1.3.0",
     "mock-require": "^3.0.3",
     "npm-scripts-help": "^0.8.0",
-    "nyc": "^14.1.1",
+    "nyc": "^15.0.0",
     "open": "^7.0.0",
-    "sinon": "^7.5.0",
+    "sinon": "^8.0.1",
     "source-map-support": "^0.5.16",
-    "ts-lint": "^4.5.1",
     "ts-node": "^8.5.4",
-    "typedoc": "^0.15.5",
+    "tslint": "^5.20.1",
+    "typedoc": "^0.15.6",
     "typescript": "^3.7.4"
   },
   "main": "index.js",
@@ -70,7 +72,7 @@
     "definitions": "index.d.ts"
   },
   "nyc": {
-    "check-coverage": true,
+    "check-coverage": false,
     "extension": [
       ".ts"
     ],

@@ -71,7 +71,7 @@ object like this:
 ~~~typescript
 const pubSub = new PgPubSub({
     connectionString: 'posgtres://user:pass@localhost:5432/dbname',
-    oneProcessListener: false,
+    singleListener: false,
 });
 ~~~
 

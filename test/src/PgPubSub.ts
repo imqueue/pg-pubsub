@@ -13,27 +13,29 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import { PgPubSub } from '..';
-import './mocks';
-import { expect } from 'chai';
-import * as sinon from 'sinon';
-import { Client } from 'pg';
+import '../mocks';
 
-process.setMaxListeners(1000);
+import { expect } from 'chai';
+import { Client } from 'pg';
+import * as sinon from 'sinon';
+import { PgPubSub } from '../../src';
+
+before(() => process.setMaxListeners(1000));
 
 describe('PgPubSub', () => {
+    let pgClient: Client;
+    let pubSub: PgPubSub;
+
+    beforeEach(() => {
+        pgClient = new Client();
+        pubSub = new PgPubSub({ pgClient });
+    });
+
     it('should be a class', () => {
         expect(typeof PgPubSub).equals('function');
     });
+
     describe('constructor()', () => {
-        let pgClient: Client;
-        let pubSub: PgPubSub;
-
-        beforeEach(() => {
-            pgClient = new Client();
-            pubSub = new PgPubSub({ pgClient });
-        });
-
         it('should accept pg client from options', () => {
             expect(pubSub.pgClient).equals(pgClient);
         });
@@ -44,7 +46,7 @@ describe('PgPubSub', () => {
             expect(ps.pgClient).instanceOf(Client);
         });
         it('should properly set events mapping', done => {
-            pubSub.options.oneProcessListener = false;
+            pubSub.options.singleListener = false;
 
             const endSpy = sinon.spy();
             const messageSpy = sinon.spy();
@@ -67,21 +69,14 @@ describe('PgPubSub', () => {
                 expect(messageSpy.calledOnce).to.be.true;
                 expect(errorSpy.calledOnce).to.be.true;
 
-                pubSub.options.oneProcessListener = true;
+                pubSub.options.singleListener = true;
 
                 done();
             });
         });
     });
+
     describe('reconnect', () => {
-        let pgClient: Client;
-        let pubSub: PgPubSub;
-
-        beforeEach(() => {
-            pgClient = new Client();
-            pubSub = new PgPubSub({ pgClient });
-        });
-
         it('should support automatic reconnect', done => {
             let counter = 0;
 
@@ -128,15 +123,8 @@ describe('PgPubSub', () => {
             }, 210);
         });
     });
+
     describe('close()', () => {
-        let pgClient: Client;
-        let pubSub: PgPubSub;
-
-        beforeEach(() => {
-            pgClient = new Client();
-            pubSub = new PgPubSub({ pgClient });
-        });
-
         it('should not reconnect if called', done => {
             let counter = 0;
 
@@ -149,31 +137,24 @@ describe('PgPubSub', () => {
             }, 210);
         });
     });
+
     describe('listen()', () => {
-        let pgClient: Client;
-        let pubSub: PgPubSub;
-
-        beforeEach(() => {
-            pgClient = new Client();
-            pubSub = new PgPubSub({ pgClient });
-        });
-
         it('should call SQL LISTEN "channel" command', async () => {
-            pubSub.options.oneProcessListener = true;
+            pubSub.options.singleListener = true;
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.listen('Test');
             const [{ args: [arg] }] = spy.getCalls();
             expect(/^LISTEN\s+"Test"/.test(arg.trim()));
         });
         it('should call SQL LISTEN "channel" command always', async () => {
-            pubSub.options.oneProcessListener = false;
+            pubSub.options.singleListener = false;
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.listen('Test');
             const [{ args: [arg] }] = spy.getCalls();
             expect(/^LISTEN\s+"Test"/.test(arg.trim()));
         });
         it('should handle messages from db with acquired lock', done => {
-            pubSub.options.oneProcessListener = true;
+            pubSub.options.singleListener = true;
 
             pubSub.listen('TestChannel').then(() => {
                 pgClient.emit('notification', {
@@ -189,7 +170,7 @@ describe('PgPubSub', () => {
             });
         });
         it('should not handle messages from db with no lock', done => {
-            pubSub.options.oneProcessListener = true;
+            pubSub.options.singleListener = true;
 
             const spy = sinon.spy(pubSub, 'emit');
 
@@ -209,63 +190,42 @@ describe('PgPubSub', () => {
             });
         });
     });
+
     describe('unlisten()', () => {
-        let pgClient: Client;
-        let pubSub: PgPubSub;
-
-        beforeEach(() => {
-            pgClient = new Client();
-            pubSub = new PgPubSub({ pgClient });
-        });
-
         it('should call SQL UNLISTEN "channel" command', async () => {
-            pubSub.options.oneProcessListener = true;
+            pubSub.options.singleListener = true;
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.unlisten('Test');
             const [{ args: [arg] }] = spy.getCalls();
             expect(/^UNLISTEN\s+"Test"/.test(arg.trim()));
         });
         it('should call SQL UNLISTEN "channel" command always', async () => {
-            pubSub.options.oneProcessListener = false;
+            pubSub.options.singleListener = false;
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.unlisten('Test');
             const [{ args: [arg] }] = spy.getCalls();
             expect(/^UNLISTEN\s+"Test"/.test(arg.trim()));
         });
     });
+
     describe('unlistenAll()', () => {
-        let pgClient: Client;
-        let pubSub: PgPubSub;
-
-        beforeEach(() => {
-            pgClient = new Client();
-            pubSub = new PgPubSub({ pgClient });
-        });
-
         it('should call SQL UNLISTEN * command', async () => {
-            pubSub.options.oneProcessListener = true;
+            pubSub.options.singleListener = true;
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.unlistenAll();
             const [{ args: [arg] }] = spy.getCalls();
             expect(/^UNLISTEN\s+\*/.test(arg.trim()));
         });
         it('should call SQL UNLISTEN * command always', async () => {
-            pubSub.options.oneProcessListener = false;
+            pubSub.options.singleListener = false;
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.unlistenAll();
             const [{ args: [arg] }] = spy.getCalls();
             expect(/^UNLISTEN\s+\*/.test(arg.trim()));
         });
     });
+
     describe('notify()', () => {
-        let pgClient: Client;
-        let pubSub: PgPubSub;
-
-        beforeEach(() => {
-            pgClient = new Client();
-            pubSub = new PgPubSub({ pgClient });
-        });
-
         it('should call SQL NOTIFY command', async () => {
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.notify('Test', { a: 'b' });

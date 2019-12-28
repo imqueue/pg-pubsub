@@ -29,5 +29,7 @@ export class Client extends EventEmitter {
     public end() {
         this.emit('end');
     }
-    public query(queryText: string) {}
+    public async query(queryText: string) {
+        return { rows: [] };
+    }
 }
