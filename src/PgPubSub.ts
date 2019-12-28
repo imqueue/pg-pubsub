@@ -185,10 +185,7 @@ export class PgPubSub extends EventEmitter {
      */
     public async notify(channel: string, payload: AnyJson): Promise<void> {
         await this.pgClient.query(
-            `NOTIFY ${
-                ident(channel)}, ${
-                literal(pack(payload, this.logger))
-            }`,
+            `NOTIFY ${ident(channel)}, ${literal(pack(payload, this.logger))}`,
         );
     }
 
@@ -362,7 +359,6 @@ export class PgPubSub extends EventEmitter {
     private async setAppName(): Promise<void> {
         try {
             this.pgClient.appName = uuid();
-
             await this.pgClient.query(
                 `SET APPLICATION_NAME TO '${this.pgClient.appName}'`,
             );
