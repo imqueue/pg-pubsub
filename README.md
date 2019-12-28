@@ -1,5 +1,8 @@
 # @imqueue/pg-pubsub
 
+[![Build Status](https://travis-ci.com/imqueue/pg-pubsub.svg?branch=master)](https://travis-ci.com/imqueue/pg-pubsub)
+[![codebeat badge](https://codebeat.co/badges/6530d335-8799-4485-9e41-8c7e18d1f2a6)](https://codebeat.co/projects/github-com-imqueue-pg-ip-listen-master)
+
 Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support
 
 ## Why?
