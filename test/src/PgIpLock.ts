@@ -19,7 +19,12 @@ import { expect } from 'chai';
 import { Client } from 'pg';
 import * as sinon from 'sinon';
 import { SinonSandbox, SinonSpy } from 'sinon';
-import { PgIpLock, SCHEMA_NAME, SHUTDOWN_TIMEOUT } from '../../src';
+import {
+    ACQUIRE_INTERVAL,
+    PgIpLock,
+    SCHEMA_NAME,
+    SHUTDOWN_TIMEOUT,
+} from '../../src';
 import { PgClient } from '../../src/types';
 
 before(() => process.setMaxListeners(1000));
@@ -35,7 +40,7 @@ describe('IPCLock', () => {
 
     beforeEach(() => {
         client = new Client() as PgClient;
-        lock = new PgIpLock('LockTest', client, console);
+        lock = new PgIpLock('LockTest', client, console, ACQUIRE_INTERVAL);
     });
 
     it('should be a class', () => {

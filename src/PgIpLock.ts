@@ -15,8 +15,10 @@
  */
 import { Notification } from 'pg';
 import { ident, literal } from 'pg-format';
+import { clearInterval } from 'timers';
 import { SCHEMA_NAME, SHUTDOWN_TIMEOUT } from './constants';
 import { AnyLogger, PgClient } from './types';
+import Timeout = NodeJS.Timeout;
 
 /**
  * Class PgIpLock - implements manageable inter-process locking mechanism over
@@ -53,17 +55,20 @@ export class PgIpLock {
     private static instances: PgIpLock[] = [];
     private acquired: boolean = false;
     private notifyHandler: (message: Notification) => void;
+    private acquireTimer?: Timeout;
 
     /**
      * @constructor
      * @param {string} channel - source channel name to manage locking on
      * @param {PgClient} pgClient - PostgreSQL client
      * @param {AnyLogger} logger - logger
+     * @param {number} acquireInterval - interval in milliseconds to try acquire
      */
     public constructor(
         public readonly channel: string,
         public readonly pgClient: PgClient,
         public readonly logger: AnyLogger,
+        public acquireInterval: number,
     ) {
         this.channel = `__${PgIpLock.name}__:${channel}`;
         PgIpLock.instances.push(this);
@@ -88,6 +93,13 @@ export class PgIpLock {
         }
 
         await this.listen();
+
+        if (!this.acquireTimer) {
+            this.acquireTimer = setInterval(
+                async () => !this.acquired && await this.acquire(),
+                this.acquireInterval,
+            );
+        }
     }
 
     /**
@@ -187,6 +199,11 @@ export class PgIpLock {
     public async destroy(): Promise<void> {
         if (this.notifyHandler) {
             this.pgClient.off('notification', this.notifyHandler);
+        }
+
+        if (this.acquireTimer) {
+            clearInterval(this.acquireTimer);
+            delete this.acquireTimer;
         }
 
         await Promise.all([this.unlisten(), this.release()]);

@@ -29,7 +29,7 @@
     "mocha": "nyc mocha",
     "show:test": "/usr/bin/env node -e \"require('open')('file://`pwd`/coverage/index.html',{wait:false});\"",
     "show:doc": "/usr/bin/env node -e \"require('open')('file://`pwd`/docs/index.html',{wait:false});\"",
-    "test": "npm run build && npm run mocha && npm run show:test && nyc report --reporter=text-lcov | coveralls",
+    "test": "npm run build && npm run mocha && npm run show:test && ((test ! -z \"${CI}\" && nyc report --reporter=text-lcov | coveralls) || exit 0)",
     "doc": "npm run clean:doc && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output)/**/*\" --mode file --out ./docs . && npm run show:doc",
     "help": "npm-scripts-help"
   },
