@@ -43,16 +43,6 @@ export class IPCLock {
         return IPCLock.instances.length > 0;
     }
 
-    /**
-     * Return logger used by instances
-     *
-     * @return {AnyLogger}
-     */
-    public static logger(): AnyLogger {
-        // istanbul ignore next
-        return IPCLock.hasInstances() ? IPCLock.instances[0].logger : console;
-    }
-
     private static instances: IPCLock[] = [];
     private acquired: boolean = false;
     private notifyHandler: (message: Notification) => void;
@@ -299,7 +289,12 @@ async function terminate() {
 
     try { await IPCLock.destroy(); } catch (err) {
         code = 1;
-        IPCLock.logger().error(err);
+
+        // istanbul ignore next
+        (IPCLock.hasInstances()
+            ? (IPCLock as any).instances[0].logger
+            : console
+        ).error(err);
     }
 }
 

@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 import { EventEmitter } from 'events';
-import { Client } from 'pg';
+import { Client, Notification } from 'pg';
 import { ident, literal } from 'pg-format';
 import { v4 as uuid } from 'uuid';
 import {
@@ -26,9 +26,11 @@ import {
     ErrorListener,
     IPCLock,
     MessageListener,
+    pack,
     PgClient,
     PgPubSubOptions,
     ReconnectListener,
+    unpack,
     VoidListener,
 } from '.';
 import Timeout = NodeJS.Timeout;
@@ -69,25 +71,13 @@ export class PgPubSub extends EventEmitter {
         super();
 
         this.options = Object.assign({}, DefaultOptions, options);
-        this.pgClient = (
-            this.options.pgClient ||
-            new Client(this.options)
-        ) as PgClient;
+        this.pgClient = (this.options.pgClient || new Client(this.options)) as
+            PgClient;
 
         this.pgClient.on('end', this.safeFailure('end'));
         this.pgClient.on('error', this.safeFailure('error'));
-        this.pgClient.on('notification', async message => {
-            if (this.options.singleListener) {
-                if (!(await this.lock(message.channel)).isAcquired()) {
-                    return; // we are not really a listener
-                }
-            }
+        this.pgClient.on('notification', this.onNotification.bind(this));
 
-            this.emit('message', message.channel, message.payload
-                ? JSON.parse(message.payload)
-                : undefined,
-            );
-        });
         this.reconnect = this.reconnect.bind(this);
     }
 
@@ -153,7 +143,8 @@ export class PgPubSub extends EventEmitter {
 
         if (this.options.singleListener) {
             await (await this.lock(channel)).release();
-        } else {
+        } else if (this.locks[channel]) {
+            await this.locks[channel].destroy();
             delete this.locks[channel];
         }
 
@@ -172,6 +163,8 @@ export class PgPubSub extends EventEmitter {
         if (this.options.singleListener) {
             await this.release();
         } else {
+            await Promise.all(Object.keys(this.locks)
+                .map(channel => this.locks[channel].destroy()));
             this.locks = {};
         }
 
@@ -190,8 +183,27 @@ export class PgPubSub extends EventEmitter {
         await this.pgClient.query(
             `NOTIFY ${
                 ident(channel)}, ${
-                literal(JSON.stringify(payload))
+                literal(pack(payload, this.logger))
             }`,
+        );
+    }
+
+    /**
+     * Database notification event handler
+     *
+     * @param {Notification} message - database message data
+     * @return {Promise<void>}
+     */
+    private async onNotification(message: Notification): Promise<void> {
+        if (this.options.singleListener) {
+            if (!(await this.lock(message.channel)).isAcquired()) {
+                return; // we are not really a listener
+            }
+        }
+
+        this.emit('message', message.channel, message.payload
+            ? unpack(message.payload, this.logger)
+            : undefined,
         );
     }
 

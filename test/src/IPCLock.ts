@@ -13,7 +13,7 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import { FakeError } from '../mocks/index';
+import { FakeError } from '../mocks';
 
 import { expect } from 'chai';
 import { Client } from 'pg';
