@@ -1,0 +1,5 @@
+{
+  "TYPESCRIPT": {
+    "TOO_MANY_FUNCTIONS": [20, 30, 40, 50]
+  }
+}
