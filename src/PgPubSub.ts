@@ -42,14 +42,14 @@ export declare interface PgPubSub {
     on(event: 'listen' | 'unlisten',       listener: ChannelsListener ): this;
     on(event: 'error',                     listener: ErrorListener    ): this;
     on(event: 'reconnect',                 listener: ReconnectListener): this;
-    on(event: 'message',                   listener: MessageListener  ): this;
+    on(event: 'message' | 'notify',        listener: MessageListener  ): this;
     on(event: string | symbol,             listener: AnyListener      ): this;
 
     once(event: 'end' | 'connect' | 'close', listener: VoidListener     ): this;
     once(event: 'listen' | 'unlisten',       listener: ChannelsListener ): this;
     once(event: 'error',                     listener: ErrorListener    ): this;
     once(event: 'reconnect',                 listener: ReconnectListener): this;
-    once(event: 'message',                   listener: MessageListener  ): this;
+    once(event: 'message' | 'notify',        listener: MessageListener  ): this;
     once(event: string | symbol,             listener: AnyListener      ): this;
 }
 
