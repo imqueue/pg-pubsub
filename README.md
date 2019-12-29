@@ -70,6 +70,21 @@ await pubSub.listen('OrderCreated');
 await pubSub.listen('ArticleUpdated');
 ~~~
 
+BTW, the most reliable way is to initiate listening on `'connect'` event:
+
+~~~typescript
+pubSub.on('connect', async () => {
+    await Promise.all([
+        'UserChanged',
+        'OrderCreated',
+        'ArticleUpdated',
+    ].map(channel => pubSub.listen(channel)));
+});
+~~~
+
+Now, whenever you need to close/reopen connection, or reconnect occurred for any
+reason you'll be sure nothing is broken.
+
 ### Handling messages
 
 All payloads on messages are treated as JSON, so when the handler catch a
@@ -221,14 +236,16 @@ function printChannels(pubSub: PgPubSub) {
         connectionString: 'postgres://postgres@localhost:5432/postgres',
     });
 
-    pubSub.on('error', console.error);
-    pubSub.on('connect', () => console.info('Database connected!'));
-    pubSub.on('end', () => console.warn('Connection closed!'));
     pubSub.on('listen', channel => console.info(`Listening ${channel}...`));
+    pubSub.on('connect', () => {
+        console.info('Database connected!');
+        await pubSub.listen(CHANNEL);
+    });
+    pubSub.on('error', console.error);
+    pubSub.on('end', () => console.warn('Connection closed!'));
     pubSub.channels.on(CHANNEL, console.log);
 
     await pubSub.connect();
-    await pubSub.listen(CHANNEL);
 
     setInterval(async () => {
         await pubSub.notify('TestChannel', {
