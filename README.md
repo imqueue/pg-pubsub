@@ -248,11 +248,8 @@ function printChannels(pubSub: PgPubSub) {
     await pubSub.connect();
 
     setInterval(async () => {
-        await pubSub.notify('TestChannel', {
-            some: { json: 'object' },
-            and: true,
-        });
-        printChannels(pubSub)
+        await pubSub.notify('TestChannel', { some: { json: 'payload' } });
+        printChannels(pubSub);
     }, 5000);
 })();
 ~~~
