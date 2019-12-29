@@ -42,6 +42,7 @@ describe('IPCLock', () => {
         client = new Client() as PgClient;
         lock = new PgIpLock('LockTest', client, console, ACQUIRE_INTERVAL);
     });
+    afterEach(async () => lock.destroy());
 
     it('should be a class', () => {
         expect(typeof PgIpLock).equals('function');

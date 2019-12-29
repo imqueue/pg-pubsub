@@ -223,34 +223,37 @@ happened, just don't forget to use correct db connection string):
 
 ~~~typescript
 import { PgPubSub } from '@imqueue/pg-pubsub';
-
-function printChannels(pubSub: PgPubSub) {
-    console.log('active:', pubSub.activeChannels());
-    console.log('inactive:', pubSub.inactiveChannels());
-    console.log('all:', pubSub.allChannels());
-}
+import Timer = NodeJS.Timer;
 
 (async () => {
-    const CHANNEL = 'TestChannel';
+    const CHANNEL = 'HelloChannel';
     const pubSub = new PgPubSub({
         connectionString: 'postgres://postgres@localhost:5432/postgres',
     });
+    let timer: Timer;
 
-    pubSub.on('listen', channel => console.info(`Listening ${channel}...`));
+    pubSub.on('listen', channel => {
+        console.info(`Listening from ${channel}...`);
+        timer && clearInterval(timer);
+    });
     pubSub.on('connect', async () => {
         console.info('Database connected!');
         await pubSub.listen(CHANNEL);
+        if (pubSub.isActive(CHANNEL)) {
+            return ;
+        }
+        timer = setInterval(async () => {
+            await pubSub.notify(CHANNEL, { hello: { from: process.pid } });
+        }, 5000);
+    });
+    pubSub.on('notify', channel => {
+        console.log(`Message sent to ${channel}`);
     });
     pubSub.on('error', console.error);
     pubSub.on('end', () => console.warn('Connection closed!'));
     pubSub.channels.on(CHANNEL, console.log);
 
     await pubSub.connect();
-
-    setInterval(async () => {
-        await pubSub.notify('TestChannel', { some: { json: 'payload' } });
-        printChannels(pubSub);
-    }, 5000);
 })();
 ~~~
 
