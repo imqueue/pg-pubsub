@@ -37,9 +37,6 @@ import {
 import { PgChannelEmitter } from './PgChannelEmitter';
 import Timeout = NodeJS.Timeout;
 
-/**
- * Declare typed events on PgPubSub
- */
 export declare interface PgPubSub {
     on(event: 'end' | 'connect' | 'close', listener: VoidListener      ): this;
     on(event: 'listen' | 'unlisten',       listener: ChannelsListener  ): this;
@@ -50,8 +47,69 @@ export declare interface PgPubSub {
 }
 
 /**
- * Class PgPubSub
- * Implements use-friendly LISTEN/NOTIFY client for PostgreSQL connections
+ * Implements LISTEN/NOTIFY client for PostgreSQL connections.
+ *
+ * It is a basic public interface of this library, so the end-user is going
+ * to work with this class directly to solve his/her tasks.
+ *
+ * Importing:
+ * ~~~typescript
+ * import { AnyJson, PgPubSub } from '@imqueue/pg-pubsub';
+ * ~~~
+ *
+ * Instantiation:
+ * ~~~typescript
+ * const pubSub = new PgPubSub(options)
+ * ~~~
+ * @see PgPubSubOptions
+ *
+ * Connecting and listening:
+ * ~~~typescript
+ * pubSub.on('connect', async () => {
+ *     await pubSub.listen('ChannelOne');
+ *     await pubSub.listen('ChannelTwo');
+ * });
+ * // or, even better:
+ * pubSub.on('connect', async () => {
+ *     await Promise.all(
+ *         ['ChannelOne', 'ChannelTwo'].map(channel => channel.listen()),
+ *     );
+ * });
+ * // or. less reliable:
+ * await pubSub.connect();
+ * await Promise.all(
+ *     ['ChannelOne', 'ChannelTwo'].map(channel => channel.listen()),
+ * );
+ * ~~~
+ *
+ * Handle messages:
+ * ~~~typescript
+ * pubSub.on('message', (channel: string, payload: AnyJson) =>
+ *     console.log(channel, payload);
+ * );
+ * // or, using channels
+ * pubSub.channels.on('ChannelOne', (payload: AnyJson) =>
+ *     console.log(1, payload),
+ * );
+ * pubSub.channels.on('ChannelTwo', (payload: AnyJson) =>
+ *     console.log(2, payload),
+ * );
+ * ~~~
+ *
+ * Destroying:
+ * ~~~typescript
+ * await pubSub.destroy();
+ * ~~~
+ *
+ * Closing and re-using connection:
+ * ~~~typescript
+ * await pubSub.close();
+ * await pubSub.connect();
+ * ~~~
+ *
+ * This close/connect technique may be used when doing some heavy message
+ * handling, so while you close, another running copy may handle next
+ * messages...
  */
 export class PgPubSub extends EventEmitter {
 
@@ -85,7 +143,7 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
-     * Established re-connectable database connection
+     * Establishes re-connectable database connection
      *
      * @return {Promise<void>}
      */
@@ -114,7 +172,7 @@ export class PgPubSub extends EventEmitter {
     /**
      * Starts listening given channel. If singleListener option is set to
      * true, it guarantees that only one process would be able to listen
-     * this channel ata a time.
+     * this channel at a time.
      *
      * @param {string} channel - channel name to listen
      * @return {Promise<void>}
@@ -136,7 +194,7 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
-     * Stops listening of the given chanel, and, if opeProcessListener option is
+     * Stops listening of the given chanel, and, if singleListener option is
      * set to true - will release an acquired lock (if it was settled).
      *
      * @param {string} channel - channel name to unlisten
@@ -156,7 +214,7 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
-     * Stops listening all connected channels, and, if opeProcessListener option
+     * Stops listening all connected channels, and, if singleListener option
      * is set to true - will release all acquired locks (if any was settled).
      *
      * @return {Promise<void>}
@@ -176,7 +234,7 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
-     * Performs NOTIFY to a given chanel publishing given payload to all
+     * Performs NOTIFY to a given chanel with a given payload to all
      * listening subscribers
      *
      * @param {string} channel - channel to publish to

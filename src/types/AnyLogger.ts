@@ -13,6 +13,9 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+/**
+ * Represents logger interface suitable to be injected into this library objects
+ */
 export interface AnyLogger {
     log(...args: any[]): void;
     info(...args: any[]): void;
