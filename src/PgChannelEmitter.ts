@@ -18,6 +18,7 @@ import { ChannelListener } from './types';
 
 export declare interface PgChannelEmitter {
     on(event: string, listener: ChannelListener): this;
+    once(event: string, listener: ChannelListener): this;
 }
 
 /**

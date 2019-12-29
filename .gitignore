@@ -18,6 +18,8 @@ connect.lock/
 coverage/
 typings/
 docs/
+wiki/
+pg-pubsub.wiki
 debug*
 *.txt
 *.js

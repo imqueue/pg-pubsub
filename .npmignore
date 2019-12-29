@@ -19,6 +19,7 @@ connect.lock/
 coverage/
 typings/
 docs/
+wiki/
 test/
 debug*
 *.sublime-workspace
