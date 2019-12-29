@@ -237,7 +237,7 @@ function printChannels(pubSub: PgPubSub) {
     });
 
     pubSub.on('listen', channel => console.info(`Listening ${channel}...`));
-    pubSub.on('connect', () => {
+    pubSub.on('connect', async () => {
         console.info('Database connected!');
         await pubSub.listen(CHANNEL);
     });
