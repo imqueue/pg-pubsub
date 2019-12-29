@@ -188,10 +188,11 @@ const pubSub = new PgPubSub({ pgClient: existingClient });
 > connection approach. And this library as well. It is just more simple and 
 > reliable.
 
-## Full API Docs
+## [Full API Docs](https://github.com/imqueue/pg-pubsub/wiki)
 
-You may read a code of library itself, use hints in your IDE or generate
-HTML docs with:
+You may read API docs on [wiki pages](https://github.com/imqueue/pg-pubsub/wiki)
+, read the code of the library itself, use hints in your IDE or generate HTML 
+docs with:
 
 ~~~bash
 git clone git@github.com:imqueue/pg-pubsub.git
