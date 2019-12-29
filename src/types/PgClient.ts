@@ -15,6 +15,9 @@
  */
 import { Client } from 'pg';
 
+/**
+ * Extends `pg.Client` with additional properties
+ */
 export interface PgClient extends Client {
     appName: string;
 }

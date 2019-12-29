@@ -21,7 +21,6 @@ export declare interface PgChannelEmitter {
 }
 
 /**
- * Class PgChannelEmitter
  * Implements event emitting/subscribing on PostgreSQL LISTEN/NOTIFY
  * named channels.
  */

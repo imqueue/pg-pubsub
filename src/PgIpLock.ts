@@ -21,8 +21,30 @@ import { AnyLogger, PgClient } from './types';
 import Timeout = NodeJS.Timeout;
 
 /**
- * Class PgIpLock - implements manageable inter-process locking mechanism over
- * existing PostgreSQL connection for a given LISTEN channel
+ * Implements manageable inter-process locking mechanism over
+ * existing PostgreSQL connection for a given LISTEN channel.
+ *
+ * It uses periodic locks acquire retries and implements graceful shutdown
+ * using SIGINT, SIGTERM and SIGABRT OS signals, by which safely releases
+ * an acquired lock, which causes an event to other similar running instances
+ * on another processes (or on another hosts) to capture free lock.
+ *
+ * By running inside Docker containers this would work flawlessly on
+ * implementation auto-scaling services, as docker destroys containers
+ * gracefully.
+ *
+ * Currently, the only known issue could happen only if, for example, database
+ * or software (or hardware) in the middle will cause a silent disconnect. For
+ * some period of time, despite the fact that there are other live potential
+ * listeners some messages can go into void. This time period can be tuned by
+ * bypassing wanted `acquireInterval` argument. By the way, take into account
+ * that too short period and number of running services may cause huge flood of
+ * lock acquire requests to a database, so selecting the proper number should be
+ * a thoughtful trade-off between overall system load and reliability level.
+ *
+ * Usually you do not need instantiate this class directly - it will be done
+ * by a PgPubSub instances on their needs. Therefore, you may re-use this piece
+ * of code in some other implementations, so it is exported as is.
  */
 export class PgIpLock {
     /**
@@ -40,7 +62,9 @@ export class PgIpLock {
      * @return {Promise<void>}
      */
     public static async destroy(): Promise<void> {
-        await Promise.all(PgIpLock.instances.map(lock => lock.destroy()));
+        await Promise.all(
+            PgIpLock.instances.slice().map(lock => lock.destroy()),
+        );
     }
 
     /**
@@ -75,7 +99,9 @@ export class PgIpLock {
     }
 
     /**
-     * Initializes IPC locks storage
+     * Initializes inter-process locks storage in database and starts
+     * listening of lock release events, as well as initializes lock
+     * acquire retry timer.
      *
      * @return {Promise<void>}
      */
@@ -104,7 +130,8 @@ export class PgIpLock {
 
     /**
      * This would provide release handler which will be called once the
-     * lock is released and the channel name would be bypassed to a handler
+     * lock is released and the channel name would be bypassed to a given
+     * handler
      *
      * @param {(channel: string) => void} handler
      */
@@ -163,7 +190,8 @@ export class PgIpLock {
     }
 
     /**
-     * Releases acquired lock
+     * Releases acquired lock on this channel. After lock is released, another
+     * running process or host would be able to acquire the lock.
      *
      * @return {Promise<void>}
      */
@@ -182,7 +210,7 @@ export class PgIpLock {
     }
 
     /**
-     * Returns current lock state
+     * Returns current lock state, true if acquired, false - otherwise.
      *
      * @return {boolean}
      */
@@ -191,8 +219,8 @@ export class PgIpLock {
     }
 
     /**
-     * Destroys this lock properly. After destroy, if it is required to be
-     * re-used - it should be re-initialized with init().
+     * Destroys this lock properly. After destroy, it should be removed from
+     * memory or it can behave unpredictably.
      *
      * @return {Promise<void>}
      */
@@ -207,6 +235,11 @@ export class PgIpLock {
         }
 
         await Promise.all([this.unlisten(), this.release()]);
+
+        PgIpLock.instances.splice(
+            PgIpLock.instances.findIndex(lock => lock === this),
+            1,
+        );
     }
 
     /**
@@ -307,8 +340,8 @@ export const RX_LOCK_CHANNEL: RegExp = new RegExp(`^__${PgIpLock.name}__:`);
 
 let timer: any;
 /**
- * Performs graceful shutdown of running process
- * releasing all instantiated locks
+ * Performs graceful shutdown of running process releasing all instantiated
+ * locks and properly destroy all their instances.
  */
 async function terminate() {
     let code: number = 0;

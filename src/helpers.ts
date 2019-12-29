@@ -17,7 +17,7 @@ import { AnyJson, AnyLogger } from './types';
 
 /**
  * Serializes given input object to JSON string. On error will return
- * serialized null value.
+ * serialized null value
  *
  * @param {AnyJson} input - serializable object
  * @param {AnyLogger} [logger] - logger to handle errors logging with
@@ -48,7 +48,7 @@ export function pack(
 
 /**
  * Deserializes given input JSON string to corresponding JSON value object.
- * On error will return empty object.
+ * On error will return empty object
  *
  * @param {string} input - string to deserialize
  * @param {AnyLogger} [logger] - logger to handle errors logging with
