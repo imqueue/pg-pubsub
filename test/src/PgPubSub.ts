@@ -30,6 +30,7 @@ describe('PgPubSub', () => {
         pgClient = new Client();
         pubSub = new PgPubSub({ pgClient });
     });
+    afterEach(async () => pubSub.destroy());
 
     it('should be a class', () => {
         expect(typeof PgPubSub).equals('function');
@@ -255,6 +256,11 @@ describe('PgPubSub', () => {
             // make sure all async events handled
             await new Promise(resolve => setTimeout(resolve, 10));
         });
+        afterEach(async () => Promise.all([
+            pubSub1.destroy(),
+            pubSub2.destroy(),
+            pubSub3.destroy(),
+        ]));
 
         describe('activeChannels()', () => {
             it('should return active channels only', () => {
@@ -290,6 +296,28 @@ describe('PgPubSub', () => {
                     'ChannelOne', 'ChannelTwo',
                     'ChannelFive', 'ChannelSix',
                 ]);
+            });
+        });
+        describe('isActive()', () => {
+            it('should return true if given channel is active', () => {
+                expect(pubSub1.isActive('ChannelOne')).to.be.true;
+                expect(pubSub1.isActive('ChannelTwo')).to.be.true;
+                expect(pubSub2.isActive('ChannelThree')).to.be.true;
+                expect(pubSub2.isActive('ChannelFour')).to.be.true;
+                expect(pubSub3.isActive('ChannelFive')).to.be.true;
+                expect(pubSub3.isActive('ChannelSix')).to.be.true;
+            });
+            it('should return false if given channel is not active', () => {
+                expect(pubSub1.isActive('ChannelThree')).to.be.false;
+                expect(pubSub1.isActive('ChannelFour')).to.be.false;
+            });
+            it('should return true if there is active channels', () => {
+                expect(pubSub1.isActive()).to.be.true;
+                expect(pubSub2.isActive()).to.be.true;
+                expect(pubSub3.isActive()).to.be.true;
+            });
+            it('should return false if there are no active channels', () => {
+                expect(pubSub.isActive()).to.be.false;
             });
         });
     });

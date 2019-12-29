@@ -225,21 +225,26 @@ export class PgIpLock {
      * @return {Promise<void>}
      */
     public async destroy(): Promise<void> {
-        if (this.notifyHandler) {
-            this.pgClient.off('notification', this.notifyHandler);
+        try {
+            if (this.notifyHandler) {
+                this.pgClient.off('notification', this.notifyHandler);
+            }
+
+            if (this.acquireTimer) {
+                clearInterval(this.acquireTimer);
+                delete this.acquireTimer;
+            }
+
+            await Promise.all([this.unlisten(), this.release()]);
+
+            PgIpLock.instances.splice(
+                PgIpLock.instances.findIndex(lock => lock === this),
+                1,
+            );
+        } catch (err) {
+            // do not crash - just log
+            this.logger && this.logger.error && this.logger.error(err);
         }
-
-        if (this.acquireTimer) {
-            clearInterval(this.acquireTimer);
-            delete this.acquireTimer;
-        }
-
-        await Promise.all([this.unlisten(), this.release()]);
-
-        PgIpLock.instances.splice(
-            PgIpLock.instances.findIndex(lock => lock === this),
-            1,
-        );
     }
 
     /**

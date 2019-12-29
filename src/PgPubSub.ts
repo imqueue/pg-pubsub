@@ -252,6 +252,8 @@ export class PgPubSub extends EventEmitter {
         await this.pgClient.query(
             `NOTIFY ${ident(channel)}, ${literal(pack(payload, this.logger))}`,
         );
+
+        this.emit('notify', channel, payload);
     }
 
     /**
@@ -285,6 +287,23 @@ export class PgPubSub extends EventEmitter {
      */
     public allChannels(): string[] {
         return Object.keys(this.locks);
+    }
+
+    /**
+     * If channel argument passed will return true if channel is in active
+     * state (listening by this pub/sub), false - otherwise. If channel is
+     * not specified - will return true if there is at least one active channel
+     * listened by this pub/sub, false - otherwise.
+     *
+     * @param {string} channel
+     * @return {boolean}
+     */
+    public isActive(channel?: string): boolean {
+        if (!channel) {
+            return this.activeChannels().length > 0;
+        }
+
+        return !!~this.activeChannels().indexOf(channel);
     }
 
     /**
