@@ -1,12 +1,29 @@
-# @imqueue/pg-pubsub
+<h1 align="center">@imqueue/pg-pubsub</h1>
 
-[![Build Status](https://travis-ci.com/imqueue/pg-pubsub.svg?branch=master)](https://travis-ci.com/imqueue/pg-pubsub)
-[![codebeat badge](https://codebeat.co/badges/579f6d7c-df61-4bc2-aa2e-d4fa9a3abf5a)](https://codebeat.co/projects/github-com-imqueue-pg-pubsub-master)
-[![Coverage Status](https://coveralls.io/repos/github/imqueue/pg-pubsub/badge.svg?branch=master)](https://coveralls.io/github/imqueue/pg-pubsub?branch=master)
+<div align="center">
+    <a href="https://travis-ci.com/imqueue/pg-pubsub">
+        <img src="https://travis-ci.com/imqueue/pg-pubsub.svg?branch=master" alt="Build Status">
+    </a>
+    <a href="https://codebeat.co/projects/github-com-imqueue-pg-pubsub-master">
+        <img src="https://codebeat.co/badges/579f6d7c-df61-4bc2-aa2e-d4fa9a3abf5a" alt="Codebeat Grade">
+    </a>
+    <a href="https://coveralls.io/github/imqueue/pg-pubsub?branch=master">
+        <img src="https://coveralls.io/repos/github/imqueue/pg-pubsub/badge.svg?branch=master" alt="Coverage Status">
+    </a>
+    <a href="https://rawgit.com/imqueue/core/master/LICENSE">
+        <img src="https://img.shields.io/badge/license-ISC-blue.svg" alt="Coverage Status">
+    </a>
+</div>
 
-**Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support**
+<p align="center">
+    <strong>Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support</strong>
+</p>
 
-[![pg-pubsub in action](https://raw.githubusercontent.com/Mikhus/blob/master/pg-pubsub-ip.gif)]()
+<div align="center">
+    <img src="https://raw.githubusercontent.com/Mikhus/blob/master/pg-pubsub-ip.gif" alt="pg-pubsub in action">
+</div>
+
+<hr>
 
 ## What Is This?
 
@@ -258,6 +275,13 @@ import Timer = NodeJS.Timer;
     await pubSub.connect();
 })();
 ~~~
+
+## Contributing
+
+Any contributions are greatly appreciated. Feel free to fork, propose PRs, open
+issues, do whatever you think may be helpful to this project. PRs which passes
+all tests and do not brake tslint rules are first-class candidates to be
+accepted!
 
 ## License
 
