@@ -1,4 +1,9 @@
-<h1 align="center">@imqueue/pg-pubsub</h1>
+<h1 align="center">
+    @imqueue/pg-pubsub
+    <a href="https://twitter.com/intent/tweet?text=Reliable%20PostgreSQL%20LISTEN/NOTIFY%20with%20inter-process%20lock%20support&url=https://github.com/imqueue/pg-pubsub&via=github&hashtags=typescript,javascript,nodejs,postgres,developers">
+        <img src="https://img.shields.io/twitter/url/http/shields.io.svg?style=social" alt="Tweet">
+    </a>
+</h1>
 <div align="center">
     <a href="https://travis-ci.com/imqueue/pg-pubsub">
         <img src="https://travis-ci.com/imqueue/pg-pubsub.svg?branch=master" alt="Build Status">
