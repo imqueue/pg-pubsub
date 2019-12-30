@@ -1,6 +1,7 @@
 {
   "TYPESCRIPT": {
     "TOTAL_LOC": [250, 500, 750, 1000],
-    "TOO_MANY_FUNCTIONS": [20, 30, 40, 50]
+    "TOO_MANY_FUNCTIONS": [20, 30, 40, 50],
+    "TOTAL_COMPLEXITY": [100, 180, 280, 400]
   }
 }
