@@ -6,6 +6,8 @@
 
 **Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support**
 
+[![pg-pubsub in action](https://raw.githubusercontent.com/Mikhus/blob/master/pg-pubsub-ip.gif)]()
+
 ## What Is This?
 
 This library provides a clean way to use PostgreSQL 
