@@ -20,6 +20,7 @@ import { v4 as uuid } from 'uuid';
 import {
     AnyJson,
     AnyLogger,
+    close,
     connect,
     DefaultOptions,
     end,
