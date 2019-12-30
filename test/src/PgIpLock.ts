@@ -27,7 +27,6 @@ import {
 } from '../../src';
 import { PgClient } from '../../src/types';
 
-before(() => process.setMaxListeners(1000));
 after(() => {
     process.removeAllListeners('SIGTERM');
     process.removeAllListeners('SIGABRT');

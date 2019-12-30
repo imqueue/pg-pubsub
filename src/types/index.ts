@@ -17,4 +17,4 @@ export * from './AnyJson';
 export * from './AnyLogger';
 export * from './PgClient';
 export * from './PgPubSubOptions';
-export * from './Listeners';
+export * from './events';

@@ -19,38 +19,206 @@ import { ident, literal } from 'pg-format';
 import { v4 as uuid } from 'uuid';
 import {
     AnyJson,
-    AnyListener,
     AnyLogger,
-    ChannelsListener,
+    connect,
     DefaultOptions,
-    ErrorListener,
-    MessageListener,
+    end,
+    error,
+    listen,
+    message,
+    notify,
     pack,
     PgClient,
     PgIpLock,
     PgPubSubOptions,
-    ReconnectListener,
+    reconnect,
     RX_LOCK_CHANNEL,
+    unlisten,
     unpack,
-    VoidListener,
 } from '.';
 import { PgChannelEmitter } from './PgChannelEmitter';
 import Timeout = NodeJS.Timeout;
 
+// PgPubSub Events
 export declare interface PgPubSub {
-    on(event: 'end' | 'connect' | 'close', listener: VoidListener     ): this;
-    on(event: 'listen' | 'unlisten',       listener: ChannelsListener ): this;
-    on(event: 'error',                     listener: ErrorListener    ): this;
-    on(event: 'reconnect',                 listener: ReconnectListener): this;
-    on(event: 'message' | 'notify',        listener: MessageListener  ): this;
-    on(event: string | symbol,             listener: AnyListener      ): this;
+    /**
+     * Sets `'end'` event handler
+     *
+     * @param {'end'} event
+     * @param {typeof end} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'end', listener: typeof end): this;
 
-    once(event: 'end' | 'connect' | 'close', listener: VoidListener     ): this;
-    once(event: 'listen' | 'unlisten',       listener: ChannelsListener ): this;
-    once(event: 'error',                     listener: ErrorListener    ): this;
-    once(event: 'reconnect',                 listener: ReconnectListener): this;
-    once(event: 'message' | 'notify',        listener: MessageListener  ): this;
-    once(event: string | symbol,             listener: AnyListener      ): this;
+    /**
+     * Sets `'connect'` event handler
+     *
+     * @param {'connect'} event
+     * @param {typeof connect} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'connect', listener: typeof connect): this;
+
+    /**
+     * Sets `'close'` event handler
+     *
+     * @param {'close'} event
+     * @param {typeof close} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'close', listener: typeof close): this;
+
+    /**
+     * Sets `'listen'` event handler
+     *
+     * @param {'listen'} event
+     * @param {typeof listen} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'listen', listener: typeof listen): this;
+
+    /**
+     * Sets `'unlisten'` event handler
+     *
+     * @param {'unlisten'} event
+     * @param {typeof unlisten} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'unlisten', listener: typeof unlisten): this;
+
+    /**
+     * Sets `'error'` event handler
+     *
+     * @param {'error'} event
+     * @param {typeof error} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'error', listener: typeof error): this;
+
+    /**
+     * Sets `'reconnect'` event handler
+     *
+     * @param {'reconnect'} event
+     * @param {typeof reconnect} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'reconnect', listener: typeof reconnect): this;
+
+    /**
+     * Sets `'message'` event handler
+     *
+     * @param {'message'} event
+     * @param {typeof message} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'message', listener: typeof message): this;
+
+    /**
+     * Sets `'notify'` event handler
+     *
+     * @param {'notify'} event
+     * @param {typeof notify} listener
+     * @return {PgPubSub}
+     */
+    on(event: 'notify', listener: typeof notify): this;
+
+    /**
+     * Sets any unknown or user-defined event handler
+     *
+     * @param {string | symbol} event - event name
+     * @param {(...args: any[]) => void} listener - event handler
+     */
+    on(event: string | symbol, listener: (...args: any[]) => void): this;
+
+    /**
+     * Sets `'end'` event handler, which fired only one single time
+     *
+     * @param {'end'} event
+     * @param {typeof end} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'end', listener: typeof end): this;
+
+    /**
+     * Sets `'connect'` event handler, which fired only one single time
+     *
+     * @param {'connect'} event
+     * @param {typeof connect} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'connect', listener: typeof connect): this;
+
+    /**
+     * Sets `'close'` event handler, which fired only one single time
+     *
+     * @param {'close'} event
+     * @param {typeof close} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'close', listener: typeof close): this;
+
+    /**
+     * Sets `'listen'` event handler, which fired only one single time
+     *
+     * @param {'listen'} event
+     * @param {typeof listen} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'listen', listener: typeof listen): this;
+
+    /**
+     * Sets `'unlisten'` event handler, which fired only one single time
+     *
+     * @param {'unlisten'} event
+     * @param {typeof unlisten} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'unlisten', listener: typeof unlisten): this;
+
+    /**
+     * Sets `'error'` event handler, which fired only one single time
+     *
+     * @param {'error'} event
+     * @param {typeof error} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'error', listener: typeof error): this;
+
+    /**
+     * Sets `'reconnect'` event handler, which fired only one single time
+     *
+     * @param {'reconnect'} event
+     * @param {typeof reconnect} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'reconnect', listener: typeof reconnect): this;
+
+    /**
+     * Sets `'message'` event handler, which fired only one single time
+     *
+     * @param {'message'} event
+     * @param {typeof message} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'message', listener: typeof message): this;
+
+    /**
+     * Sets `'notify'` event handler, which fired only one single time
+     *
+     * @param {'notify'} event
+     * @param {typeof notify} listener
+     * @return {PgPubSub}
+     */
+    once(event: 'notify', listener: typeof notify): this;
+
+    /**
+     * Sets any unknown or user-defined event handler, which would fire only
+     * one single time
+     *
+     * @param {string | symbol} event - event name
+     * @param {(...args: any[]) => void} listener - event handler
+     */
+    once(event: string | symbol, listener: (...args: any[]) => void): this;
 }
 
 /**

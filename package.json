@@ -32,8 +32,8 @@
     "show:test": "/usr/bin/env node -e \"require('open')('file://`pwd`/coverage/index.html',{wait:false});\"",
     "show:doc": "/usr/bin/env node -e \"require('open')('file://`pwd`/docs/index.html',{wait:false});\"",
     "test": "npm run build && npm run mocha && npm run show:test && ((test ! -z \"${CI}\" && nyc report --reporter=text-lcov | coveralls) || exit 0)",
-    "doc": "npm run clean:doc && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output)/**/*\" --mode file --out ./docs --plugin none . && npm run show:doc",
-    "wiki": "npm run clean:wiki && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output)/**/*\" --mode file --out ./wiki --plugin typedoc-plugin-markdown --theme markdown .",
+    "doc": "npm run clean && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output)/**/*\" --mode file --out ./docs --plugin typedoc-plugin-as-member-of . && npm run show:doc",
+    "wiki": "npm run clean && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output)/**/*\" --mode file --out ./wiki --plugin typedoc-plugin-as-member-of,typedoc-plugin-markdown  --theme markdown .",
     "help": "npm-scripts-help"
   },
   "author": "imqueue.com <support@imqueue.com>",
@@ -73,6 +73,7 @@
     "ts-node": "^8.5.4",
     "tslint": "^5.20.1",
     "typedoc": "^0.15.6",
+    "typedoc-plugin-as-member-of": "^1.0.2",
     "typedoc-plugin-markdown": "^2.2.14",
     "typescript": "^3.7.4"
   },

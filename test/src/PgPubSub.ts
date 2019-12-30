@@ -20,8 +20,6 @@ import { Client } from 'pg';
 import * as sinon from 'sinon';
 import { PgClient, PgIpLock, PgPubSub } from '../../src';
 
-before(() => process.setMaxListeners(1000));
-
 describe('PgPubSub', () => {
     let pgClient: Client;
     let pubSub: PgPubSub;
