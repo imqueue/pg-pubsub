@@ -14,11 +14,26 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 import { EventEmitter } from 'events';
-import { ChannelListener } from './types';
+import { channel } from './types';
 
 export declare interface PgChannelEmitter {
-    on(event: string, listener: ChannelListener): this;
-    once(event: string, listener: ChannelListener): this;
+    /**
+     * Sets channel listener event handler
+     *
+     * @param {string} channelName - channel name to listen
+     * @param {typeof channel} listener - channel event handler
+     * @return {PgChannelEmitter}
+     */
+    on(channelName: string, listener: typeof channel): this;
+
+    /**
+     * Sets channel listener event handler which will be fired only one time
+     *
+     * @param {string} channelName - channel name to listen
+     * @param {typeof channel} listener - channel event handler
+     * @return {PgChannelEmitter}
+     */
+    once(channelName: string, listener: typeof channel): this;
 }
 
 /**
