@@ -311,11 +311,14 @@ export class PgPubSub extends EventEmitter {
         this.pgClient = (this.options.pgClient || new Client(this.options)) as
             PgClient;
 
-        this.pgClient.on('end', this.safeFailure('end'));
-        this.pgClient.on('error', this.safeFailure('error'));
-        this.pgClient.on('notification', this.onNotification.bind(this));
+        this.pgClient.on('end', () => this.emit('end'));
+        this.pgClient.on('error', () => this.emit('error'));
 
+        this.onNotification = this.onNotification.bind(this);
         this.reconnect = this.reconnect.bind(this);
+        this.onReconnect = this.onReconnect.bind(this);
+
+        this.pgClient.on('notification', this.onNotification);
     }
 
     /**
@@ -324,7 +327,7 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async connect(): Promise<void> {
-        this.pgClient.once('end', this.reconnect);
+        this.setOnceHandler(['end', 'error'], this.reconnect);
         this.pgClient.once('connect', async () => {
             await this.setAppName();
             this.emit('connect');
@@ -340,6 +343,7 @@ export class PgPubSub extends EventEmitter {
      */
     public async close(): Promise<void> {
         this.pgClient.removeListener('end', this.reconnect);
+        this.pgClient.removeListener('error', this.reconnect);
         await this.pgClient.end();
         this.pgClient.removeAllListeners();
         this.emit('close');
@@ -491,8 +495,40 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
+     * Safely sets given handler for given pg client events, making sure
+     * we won't flood events with non-fired same stack of handlers
+     *
+     * @access private
+     * @param {string[]} events - list of events to set handler for
+     * @param {(...args: any[]) => any} handler - handler reference
+     * @return {PgPubSub}
+     */
+    private setOnceHandler(
+        events: string[],
+        handler: (...args: any) => any,
+    ): PgPubSub {
+        for (const event of events) {
+            // make sure we won't flood events with given handler,
+            // so do a cleanup first
+            const listeners = this.pgClient.listeners(event);
+
+            for (const listener of listeners) {
+                if (listener === handler) {
+                    this.pgClient.removeListener(event, handler);
+                }
+            }
+
+            // now set event handler
+            this.pgClient.once(event, handler);
+        }
+
+        return this;
+    }
+
+    /**
      * Database notification event handler
      *
+     * @access private
      * @param {Notification} notification - database message data
      * @return {Promise<void>}
      */
@@ -516,24 +552,9 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
-     * Failure handler
-     *
-     * @param {string} event
-     * @return {() => Promise<void>}
-     */
-    private safeFailure(event: string): () => Promise<void> {
-        return async () => {
-            if (this.options.singleListener) {
-                await this.release();
-            }
-
-            this.emit(event);
-        };
-    }
-
-    /**
      * On reconnect event emitter
      *
+     * @access private
      * @return {Promise<void>}
      */
     private async onReconnect(): Promise<void> {
@@ -549,19 +570,20 @@ export class PgPubSub extends EventEmitter {
      * Reconnect routine, used for implementation of auto-reconnecting db
      * connection
      *
+     * @access private
      * @return {number}
      */
     private reconnect(): Timeout {
         return setTimeout(async () => {
             if (this.options.retryLimit <= ++this.retry) {
-                const msg = `Connect failed after ${this.retry} retries...`;
+                this.emit('error', new Error(
+                    `Connect failed after ${this.retry} retries...`,
+                ));
 
-                this.emit('error', new Error(msg));
-
-                return this.close();
+                return await this.close();
             }
 
-            this.once('connect', this.onReconnect.bind(this));
+            this.setOnceHandler(['connect'], this.onReconnect);
             await this.connect();
         },
 
@@ -610,6 +632,7 @@ export class PgPubSub extends EventEmitter {
     /**
      * Sets application_name for this connection as unique identifier
      *
+     * @access private
      * @return {Promise<void>}
      */
     private async setAppName(): Promise<void> {

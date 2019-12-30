@@ -18,7 +18,7 @@ import '../mocks';
 import { expect } from 'chai';
 import { Client } from 'pg';
 import * as sinon from 'sinon';
-import { PgClient, PgIpLock, PgPubSub } from '../../src';
+import { PgClient, PgIpLock, PgPubSub, RETRY_LIMIT } from '../../src';
 
 describe('PgPubSub', () => {
     let pgClient: Client;
@@ -78,60 +78,82 @@ describe('PgPubSub', () => {
         it('should support automatic reconnect', done => {
             let counter = 0;
 
-            pubSub.on('connect', () => counter++);
-            pubSub.connect().then(() => pgClient.emit('end'));
-
-            setTimeout(() => {
-                expect(counter).equals(2);
-                done();
-            }, 210);
-        });
-        it('should emit error and end if retry limit reached', done => {
-            let err: Error;
-
-            pubSub.options.retryLimit = 3;
-            // emulate connection failure
-            pubSub.connect = async () => {
-                pgClient.once('end', (pubSub as any).reconnect);
+            // emulate termination
+            (pgClient as any).connect = () => {
+                counter++;
                 pgClient.emit('end');
             };
-            pubSub.on('error', e => (err = e));
-            pubSub.connect();
 
-            setTimeout(() => {
-                expect(err).to.be.instanceOf(Error);
-                expect(err).to.match(/failed after 3 retries/);
+            pubSub.on('error', err => {
+                expect(err.message).equals(
+                    `Connect failed after ${counter} retries...`,
+                );
                 done();
-            }, 500);
+            });
+
+            pubSub.connect();
         });
-        it('should re-subscribe all channels', done => {
+        it('should support automatic reconnect on errors', done => {
             let counter = 0;
 
+            // emulate termination
+            (pgClient as any).connect = () => {
+                counter++;
+                pgClient.emit('error');
+            };
+
+            pubSub.on('error', err => {
+                if (err) {
+                    expect(err.message).equals(
+                        `Connect failed after ${counter} retries...`,
+                    );
+                    done();
+                }
+            });
+
+            pubSub.connect();
+        });
+        it('should emit error and end if retry limit reached', async () => {
+            // emulate connection failure
+            (pgClient as any).connect = async () => {
+                pgClient.emit('end');
+            };
+
+            try {
+                await pubSub.connect();
+            } catch (err) {
+                expect(err).to.be.instanceOf(Error);
+                expect(err.message).equals(
+                    `Connect failed after ${RETRY_LIMIT} retries...`,
+                );
+            }
+        });
+        it('should re-subscribe all channels', done => {
             pubSub.listen('TestOne');
             pubSub.listen('TestTwo');
 
             const spy = sinon.spy(pubSub, 'listen');
 
-            pubSub.on('connect', () => counter++);
             pubSub.connect().then(() => pgClient.emit('end'));
 
             setTimeout(() => {
                 expect(spy.calledTwice).to.be.true;
                 done();
-            }, 210);
+            }, 30);
         });
     });
     describe('close()', () => {
-        it('should not reconnect if called', done => {
+        it('should not reconnect if called', async () => {
             let counter = 0;
 
-            pubSub.on('connect', () => counter++);
-            pubSub.connect().then(() => pubSub.close());
+            pubSub.on('connect', () => {
+                counter++;
+                pubSub.close();
+            });
 
-            setTimeout(() => {
-                expect(counter).equals(1);
-                done();
-            }, 210);
+            await pubSub.connect();
+
+            expect(counter).equals(1);
         });
     });
     describe('listen()', () => {
@@ -165,25 +187,22 @@ describe('PgPubSub', () => {
                 done();
             });
         });
-        it('should not handle messages from db with no lock', done => {
+        it('should not handle messages from db with no lock', async () => {
             pubSub.options.singleListener = true;
 
             const spy = sinon.spy(pubSub, 'emit');
 
-            pubSub.listen('TestChannel').then(() => {
-                (pubSub as any).locks.TestChannel.release();
+            await pubSub.listen('TestChannel');
+            await (pubSub as any).locks.TestChannel.release();
 
-                pgClient.emit('notification', {
-                    channel: 'TestChannel',
-                    payload: 'true',
-                });
-
-                setTimeout(() => {
-                    expect(spy.calledWith('message', 'TestChannel', true))
-                        .to.be.false;
-                    done();
-                }, 100);
+            pgClient.emit('notification', {
+                channel: 'TestChannel',
+                payload: 'true',
             });
+
+            await new Promise(resolve => setTimeout(resolve, 20));
+
+            expect(spy.calledWith('message', 'TestChannel', true)).to.be.false;
         });
     });
     describe('unlisten()', () => {
@@ -317,6 +336,51 @@ describe('PgPubSub', () => {
             it('should return false if there are no active channels', () => {
                 expect(pubSub.isActive()).to.be.false;
             });
+        });
+    });
+    describe('release()', () => {
+        it('should release all locks acquired', async () => {
+            await pubSub.listen('One');
+            await pubSub.listen('Two');
+
+            const spies = [
+                sinon.spy((pubSub as any).locks.One, 'release'),
+                sinon.spy((pubSub as any).locks.Two, 'release'),
+            ];
+
+            await (pubSub as any).release();
+            spies.forEach(spy => expect(spy.called).to.be.true);
+        });
+        it('should skip locks which was not acquired', async () => {
+            await pubSub.listen('One');
+            await pubSub.listen('Two');
+
+            await (pubSub as any).locks.One.release();
+            await (pubSub as any).locks.Two.release();
+
+            const spies = [
+                sinon.spy((pubSub as any).locks.One, 'release'),
+                sinon.spy((pubSub as any).locks.Two, 'release'),
+            ];
+
+            await (pubSub as any).release();
+            spies.forEach(spy => expect(spy.called).to.be.false);
+        });
+        it('should release only acquired locks', async () => {
+            await pubSub.listen('One');
+            await pubSub.listen('Two');
+
+            await (pubSub as any).locks.One.release();
+
+            const [one, two] = [
+                sinon.spy((pubSub as any).locks.One, 'release'),
+                sinon.spy((pubSub as any).locks.Two, 'release'),
+            ];
+
+            await (pubSub as any).release();
+
+            expect(one.called).to.be.false;
+            expect(two.called).to.be.true;
         });
     });
     describe('destroy()', () => {
