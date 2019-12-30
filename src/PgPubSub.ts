@@ -492,26 +492,26 @@ export class PgPubSub extends EventEmitter {
     /**
      * Database notification event handler
      *
-     * @param {Notification} message - database message data
+     * @param {Notification} notification - database message data
      * @return {Promise<void>}
      */
-    private async onNotification(message: Notification): Promise<void> {
-        if (RX_LOCK_CHANNEL.test(message.channel)) {
+    private async onNotification(notification: Notification): Promise<void> {
+        if (RX_LOCK_CHANNEL.test(notification.channel)) {
             // as we use the same connection with locks mechanism
             // we should avoid pub/sub client to parse lock channels data
             return ;
         }
 
         if (this.options.singleListener) {
-            if (!(await this.lock(message.channel)).isAcquired()) {
+            if (!(await this.lock(notification.channel)).isAcquired()) {
                 return; // we are not really a listener
             }
         }
 
-        const payload = unpack(message.payload);
+        const payload = unpack(notification.payload);
 
-        this.emit('message', message.channel, payload);
-        this.channels.emit(message.channel, payload);
+        this.emit('message', notification.channel, payload);
+        this.channels.emit(notification.channel, payload);
     }
 
     /**
