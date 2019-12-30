@@ -22,10 +22,10 @@ import Timeout = NodeJS.Timeout;
 
 /**
  * Implements manageable inter-process locking mechanism over
- * existing PostgreSQL connection for a given LISTEN channel.
+ * existing PostgreSQL connection for a given `LISTEN` channel.
  *
  * It uses periodic locks acquire retries and implements graceful shutdown
- * using SIGINT, SIGTERM and SIGABRT OS signals, by which safely releases
+ * using `SIGINT`, `SIGTERM` and `SIGABRT` OS signals, by which safely releases
  * an acquired lock, which causes an event to other similar running instances
  * on another processes (or on another hosts) to capture free lock.
  *
