@@ -1,5 +1,4 @@
 <h1 align="center">@imqueue/pg-pubsub</h1>
-
 <div align="center">
     <a href="https://travis-ci.com/imqueue/pg-pubsub">
         <img src="https://travis-ci.com/imqueue/pg-pubsub.svg?branch=master" alt="Build Status">
@@ -14,15 +13,14 @@
         <img src="https://img.shields.io/badge/license-ISC-blue.svg" alt="Coverage Status">
     </a>
 </div>
-
+<hr>
 <p align="center">
     <strong>Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support</strong>
 </p>
-
+<hr>
 <div align="center">
     <img src="https://raw.githubusercontent.com/Mikhus/blob/master/pg-pubsub-ip.gif" alt="pg-pubsub in action">
 </div>
-
 <hr>
 
 ## What Is This?
