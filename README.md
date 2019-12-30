@@ -81,6 +81,10 @@ const pubSub = new PgPubSub({ connectionString, singleListener: false });
 })();
 ~~~
 
+With such instantiation options natural behavior of PgPubSub will be as follows:
+
+[![Natural behavior](https://raw.githubusercontent.com/Mikhus/blob/master/pg-pubsub.gif)]()
+
 ### Listening channels
 
 After connection established you may decide to listen for any numbers of 
