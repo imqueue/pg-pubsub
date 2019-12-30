@@ -13,9 +13,11 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-export * from './helpers';
-export * from './PgPubSub';
-export * from './PgIpLock';
-export * from './NoLock';
-export * from './types';
-export * from './constants';
+export interface AnyLock {
+    init(): Promise<void>;
+    acquire(): Promise<boolean>;
+    release(): Promise<void>;
+    isAcquired(): boolean;
+    destroy(): Promise<void>;
+    onRelease(handler: (channel: string) => void): void;
+}

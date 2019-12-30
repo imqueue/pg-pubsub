@@ -19,6 +19,7 @@ import { ident, literal } from 'pg-format';
 import { v4 as uuid } from 'uuid';
 import {
     AnyJson,
+    AnyLock,
     AnyLogger,
     close,
     connect,
@@ -37,6 +38,7 @@ import {
     unlisten,
     unpack,
 } from '.';
+import { NoLock } from './NoLock';
 import { PgChannelEmitter } from './PgChannelEmitter';
 import Timeout = NodeJS.Timeout;
 
@@ -293,7 +295,7 @@ export class PgPubSub extends EventEmitter {
     public readonly options: PgPubSubOptions;
     public readonly channels: PgChannelEmitter = new PgChannelEmitter();
 
-    private locks: { [channel: string]: PgIpLock } = {};
+    private locks: { [channel: string]: AnyLock } = {};
     private retry: number = 0;
 
     /**
@@ -368,7 +370,7 @@ export class PgPubSub extends EventEmitter {
             }
         } else {
             await this.pgClient.query(`LISTEN ${ident(channel)}`);
-            this.locks[channel] = true as any;
+            this.locks[channel] = new NoLock();
             this.emit('listen', channel);
         }
     }
@@ -598,7 +600,7 @@ export class PgPubSub extends EventEmitter {
      * @param {string} channel
      * @return {Promise<PgIpLock>}
      */
-    private async lock(channel: string): Promise<PgIpLock> {
+    private async lock(channel: string): Promise<AnyLock> {
         if (!this.locks[channel]) {
             this.locks[channel] = new PgIpLock(
                 channel,
