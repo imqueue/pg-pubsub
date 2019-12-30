@@ -18,3 +18,4 @@ export * from './AnyLogger';
 export * from './PgClient';
 export * from './PgPubSubOptions';
 export * from './events';
+export * from './AnyLock';

@@ -17,7 +17,7 @@ import { Notification } from 'pg';
 import { ident, literal } from 'pg-format';
 import { clearInterval } from 'timers';
 import { SCHEMA_NAME, SHUTDOWN_TIMEOUT } from './constants';
-import { AnyLogger, PgClient } from './types';
+import { AnyLock, AnyLogger, PgClient } from './types';
 import Timeout = NodeJS.Timeout;
 
 /**
@@ -46,7 +46,7 @@ import Timeout = NodeJS.Timeout;
  * by a PgPubSub instances on their needs. Therefore, you may re-use this piece
  * of code in some other implementations, so it is exported as is.
  */
-export class PgIpLock {
+export class PgIpLock implements AnyLock {
     /**
      * DB lock schema name getter
      *
