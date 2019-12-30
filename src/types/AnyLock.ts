@@ -13,11 +13,39 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+/**
+ * Lock implementation interface to follow
+ */
 export interface AnyLock {
+    /**
+     * Must initialize lock asynchronously
+     */
     init(): Promise<void>;
+
+    /**
+     * Implements lock acquire logic asynchronously
+     */
     acquire(): Promise<boolean>;
+
+    /**
+     * Implements lock release logic asynchronously
+     */
     release(): Promise<void>;
+
+    /**
+     * Implements lock acquire verification asynchronously
+     */
     isAcquired(): boolean;
+
+    /**
+     * Implements lock safe destruction asynchronously
+     */
     destroy(): Promise<void>;
+
+    /**
+     * Implements lock release handler upset
+     *
+     * @param {(channel: string) => void} handler
+     */
     onRelease(handler: (channel: string) => void): void;
 }
