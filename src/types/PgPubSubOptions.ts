@@ -55,14 +55,15 @@ export interface PgPubSubOptions extends ClientConfig {
     retryLimit: number;
 
     /**
-     * Time interval in milliseconds before LISTEN clients would re-try to
+     * Time interval in milliseconds before `LISTEN` clients would re-try to
      * acquire channel locks. It works from one hand as connection keep-alive
      * periodical pings, from other hand adds additional level of reliability
      * for the cases when connection, which holds the lock has been suddenly
-     * disconnected in a silent manner. By default is set to 30000ms (30sec)
-     * Please, assume this value should be selected for a particular system
-     * with care of often acquire lock hits and overall infrastructure
-     * reliability.
+     * disconnected in a silent manner.
+     *
+     * By default is set to `30000ms` (`30sec`). Please, assume this value
+     * should be selected for a particular system with care of often acquire
+     * lock hits and overall infrastructure reliability.
      *
      * @type {number}
      */
@@ -84,9 +85,9 @@ export interface PgPubSubOptions extends ClientConfig {
  * @see PgPubSubOptions
  * @type {PgPubSubOptions}
  */
-export const DefaultOptions: PgPubSubOptions = {
+export const DefaultOptions: PgPubSubOptions = Object.freeze({
     retryLimit: RETRY_LIMIT,
     retryDelay: RETRY_DELAY,
     singleListener: IS_ONE_PROCESS,
     acquireInterval: ACQUIRE_INTERVAL,
-};
+});

@@ -606,12 +606,11 @@ export class PgPubSub extends EventEmitter {
      */
     private async createLock(channel: string): Promise<AnyLock> {
         if (this.options.singleListener) {
-            const lock = new PgIpLock(
-                channel,
-                this.pgClient,
-                this.logger,
-                this.options.acquireInterval,
-            );
+            const lock = new PgIpLock(channel, {
+                pgClient: this.pgClient,
+                logger: this.logger,
+                acquireInterval: this.options.acquireInterval,
+            });
 
             await lock.init();
             lock.onRelease(chan => this.listen(chan));

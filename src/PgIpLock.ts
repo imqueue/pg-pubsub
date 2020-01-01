@@ -17,7 +17,8 @@ import { Notification } from 'pg';
 import { ident, literal } from 'pg-format';
 import { clearInterval } from 'timers';
 import { SCHEMA_NAME, SHUTDOWN_TIMEOUT } from './constants';
-import { AnyLock, AnyLogger, PgClient } from './types';
+import { AnyLock } from './types';
+import { PgIpLockOptions } from './types/PgIpLockOptions';
 import Timeout = NodeJS.Timeout;
 
 /**
@@ -84,15 +85,11 @@ export class PgIpLock implements AnyLock {
     /**
      * @constructor
      * @param {string} channel - source channel name to manage locking on
-     * @param {PgClient} pgClient - PostgreSQL client
-     * @param {AnyLogger} logger - logger
-     * @param {number} acquireInterval - interval in milliseconds to try acquire
+     * @param {PgIpLockOptions} options - lock instantiate options
      */
     public constructor(
         public readonly channel: string,
-        public readonly pgClient: PgClient,
-        public readonly logger: AnyLogger,
-        public acquireInterval: number,
+        public readonly options: PgIpLockOptions,
     ) {
         this.channel = `__${PgIpLock.name}__:${channel}`;
         PgIpLock.instances.push(this);
@@ -112,7 +109,7 @@ export class PgIpLock implements AnyLock {
         }
 
         if (this.notifyHandler) {
-            this.pgClient.on('notification', this.notifyHandler);
+            this.options.pgClient.on('notification', this.notifyHandler);
         }
 
         if (!~PgIpLock.instances.indexOf(this)) {
@@ -123,7 +120,7 @@ export class PgIpLock implements AnyLock {
 
         !this.acquireTimer && (this.acquireTimer = setInterval(
             async () => !this.acquired && await this.acquire(),
-            this.acquireInterval,
+            this.options.acquireInterval,
         ));
     }
 
@@ -150,7 +147,7 @@ export class PgIpLock implements AnyLock {
             }
         };
 
-        this.pgClient.on('notification', this.notifyHandler);
+        this.options.pgClient.on('notification', this.notifyHandler);
     }
 
     /**
@@ -163,15 +160,15 @@ export class PgIpLock implements AnyLock {
         try {
             // it will not throw on successful insert
             // noinspection SqlResolve
-            await this.pgClient.query(`
+            await this.options.pgClient.query(`
                 INSERT INTO ${PgIpLock.schemaName}.lock (channel, app)
                 VALUES (
                     ${literal(this.channel)},
-                    ${literal(this.pgClient.appName)}
+                    ${literal(this.options.pgClient.appName)}
                 ) ON CONFLICT (channel) DO
                 UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
                     ${PgIpLock.schemaName}.lock.app,
-                    ${literal(this.pgClient.appName)}
+                    ${literal(this.options.pgClient.appName)}
                 )
             `);
             this.acquired = true;
@@ -181,7 +178,7 @@ export class PgIpLock implements AnyLock {
 
             // istanbul ignore next
             if (!(err.code === 'P0001' && err.detail === 'LOCKED')) {
-                this.logger.error(err);
+                this.options.logger.error(err);
             }
         }
 
@@ -200,7 +197,7 @@ export class PgIpLock implements AnyLock {
         }
 
         // noinspection SqlResolve
-        await this.pgClient.query(`
+        await this.options.pgClient.query(`
             DELETE FROM ${PgIpLock.schemaName}.lock
             WHERE channel=${literal(this.channel)}
         `);
@@ -225,7 +222,7 @@ export class PgIpLock implements AnyLock {
     public async destroy(): Promise<void> {
         try {
             if (this.notifyHandler) {
-                this.pgClient.off('notification', this.notifyHandler);
+                this.options.pgClient.off('notification', this.notifyHandler);
             }
 
             if (this.acquireTimer) {
@@ -241,7 +238,8 @@ export class PgIpLock implements AnyLock {
             );
         } catch (err) {
             // do not crash - just log
-            this.logger && this.logger.error && this.logger.error(err);
+            this.options.logger && this.options.logger.error &&
+            this.options.logger.error(err);
         }
     }
 
@@ -251,7 +249,7 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async listen(): Promise<void> {
-        await this.pgClient.query(`LISTEN ${ident(this.channel)}`);
+        await this.options.pgClient.query(`LISTEN ${ident(this.channel)}`);
     }
 
     /**
@@ -260,7 +258,7 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async unlisten(): Promise<void> {
-        await this.pgClient.query(`UNLISTEN ${ident(this.channel)}`);
+        await this.options.pgClient.query(`UNLISTEN ${ident(this.channel)}`);
     }
 
     /**
@@ -269,7 +267,7 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<boolean>}
      */
     private async schemaExists(): Promise<boolean> {
-        const { rows } = await this.pgClient.query(`
+        const { rows } = await this.options.pgClient.query(`
             SELECT schema_name
             FROM information_schema.schemata
             WHERE schema_name = '${PgIpLock.schemaName}'
@@ -284,7 +282,9 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async createSchema(): Promise<void> {
-        await this.pgClient.query(`CREATE SCHEMA ${PgIpLock.schemaName}`);
+        await this.options.pgClient.query(`
+            CREATE SCHEMA ${PgIpLock.schemaName}
+        `);
     }
 
     /**
@@ -293,19 +293,19 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async createLock(): Promise<void> {
-        await this.pgClient.query(`
+        await this.options.pgClient.query(`
             CREATE TABLE ${PgIpLock.schemaName}.lock (
                 channel CHARACTER VARYING NOT NULL PRIMARY KEY,
                 app CHARACTER VARYING NOT NULL)
         `);
         // noinspection SqlResolve
-        await this.pgClient.query(`
+        await this.options.pgClient.query(`
             CREATE FUNCTION ${PgIpLock.schemaName}.notify_lock()
             RETURNS TRIGGER LANGUAGE PLPGSQL AS $$
             BEGIN PERFORM PG_NOTIFY(OLD.channel, '1'); RETURN OLD; END; $$
         `);
         // noinspection SqlResolve
-        await this.pgClient.query(`
+        await this.options.pgClient.query(`
             CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
             AFTER DELETE ON ${PgIpLock.schemaName}.lock
             DEFERRABLE INITIALLY DEFERRED
@@ -319,7 +319,7 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async createDeadlockCheck() {
-        await this.pgClient.query(`
+        await this.options.pgClient.query(`
             CREATE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
                 old_app TEXT,
                 new_app TEXT)
@@ -362,7 +362,7 @@ async function terminate() {
 
         // istanbul ignore next
         (PgIpLock.hasInstances()
-            ? (PgIpLock as any).instances[0].logger
+            ? (PgIpLock as any).instances[0].options.logger
             : console
         ).error(err);
     }
