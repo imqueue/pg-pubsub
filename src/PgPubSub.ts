@@ -297,6 +297,7 @@ export class PgPubSub extends EventEmitter {
 
     private locks: { [channel: string]: AnyLock } = {};
     private retry: number = 0;
+    private processId: number;
 
     /**
      * @constructor
@@ -329,13 +330,18 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async connect(): Promise<void> {
-        this.setOnceHandler(['end', 'error'], this.reconnect);
-        this.pgClient.once('connect', async () => {
-            await this.setAppName();
-            this.emit('connect');
-        });
+        return new Promise(async (resolve, reject) => {
+            this.setOnceHandler(['end', 'error'], this.reconnect);
+            this.pgClient.once('connect', async () => {
+                await this.setAppName();
+                await this.setProcessId();
+                this.emit('connect');
+                resolve();
+            });
+            this.once('error', reject);
 
-        await this.pgClient.connect();
+            await this.pgClient.connect();
+        });
     }
 
     /**
@@ -526,10 +532,15 @@ export class PgPubSub extends EventEmitter {
      */
     private async onNotification(notification: Notification): Promise<void> {
         const lock = await this.lock(notification.channel);
+        const skip = RX_LOCK_CHANNEL.test(notification.channel) || (
+            this.options.filtered && this.processId === notification.processId
+        );
 
-        if (RX_LOCK_CHANNEL.test(notification.channel)) {
+        if (skip) {
             // as we use the same connection with locks mechanism
             // we should avoid pub/sub client to parse lock channels data
+            // and also filter same-notify-channel messages if filtered option
+            // is set to true
             return ;
         }
 
@@ -576,7 +587,8 @@ export class PgPubSub extends EventEmitter {
             }
 
             this.setOnceHandler(['connect'], this.onReconnect);
-            await this.connect();
+
+            try { await this.connect(); } catch (err) { /**/ }
         },
 
         this.options.retryDelay) as Timeout;
@@ -651,6 +663,22 @@ export class PgPubSub extends EventEmitter {
             await this.pgClient.query(
                 `SET APPLICATION_NAME TO '${this.pgClient.appName}'`,
             );
+        } catch (err) { /* ignore */ }
+    }
+
+    /**
+     * Retrieves process identifier from the database connection and sets it to
+     * `this.processId`.
+     *
+     * @return {Promise<void>}
+     */
+    private async setProcessId() {
+        try {
+            const { rows: [{ pid }] } = await this.pgClient.query(`
+                SELECT pid FROM pg_stat_activity
+                WHERE application_name = ${literal(this.pgClient.appName)}
+            `);
+            this.processId = +pid;
         } catch (err) { /* ignore */ }
     }
 }
