@@ -108,24 +108,23 @@ export class PgIpLock implements AnyLock {
     public async init(): Promise<void> {
         if (!await this.schemaExists()) {
             await this.createSchema();
-            await Promise.all([
-                this.createLock(),
-                this.createDeadlockCheck(),
-            ]);
+            await Promise.all([this.createLock(), this.createDeadlockCheck()]);
         }
 
         if (this.notifyHandler) {
             this.pgClient.on('notification', this.notifyHandler);
         }
 
+        if (!~PgIpLock.instances.indexOf(this)) {
+            PgIpLock.instances.push(this);
+        }
+
         await this.listen();
 
-        if (!this.acquireTimer) {
-            this.acquireTimer = setInterval(
-                async () => !this.acquired && await this.acquire(),
-                this.acquireInterval,
-            );
-        }
+        !this.acquireTimer && (this.acquireTimer = setInterval(
+            async () => !this.acquired && await this.acquire(),
+            this.acquireInterval,
+        ));
     }
 
     /**
@@ -219,8 +218,7 @@ export class PgIpLock implements AnyLock {
     }
 
     /**
-     * Destroys this lock properly. After destroy, it should be removed from
-     * memory or it can behave unpredictably.
+     * Destroys this lock properly.
      *
      * @return {Promise<void>}
      */

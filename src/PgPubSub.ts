@@ -28,6 +28,7 @@ import {
     error,
     listen,
     message,
+    NoLock,
     notify,
     pack,
     PgClient,
@@ -38,7 +39,6 @@ import {
     unlisten,
     unpack,
 } from '.';
-import { NoLock } from './NoLock';
 import { PgChannelEmitter } from './PgChannelEmitter';
 import Timeout = NodeJS.Timeout;
 
@@ -344,8 +344,8 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async close(): Promise<void> {
-        this.pgClient.removeListener('end', this.reconnect);
-        this.pgClient.removeListener('error', this.reconnect);
+        this.pgClient.off('end', this.reconnect);
+        this.pgClient.off('error', this.reconnect);
         await this.pgClient.end();
         this.pgClient.removeAllListeners();
         this.emit('close');
@@ -360,17 +360,11 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async listen(channel: string): Promise<void> {
-        if (this.options.singleListener) {
-            const lock = await this.lock(channel);
+        const lock = await this.lock(channel);
 
-            // istanbul ignore else
-            if (await lock.acquire()) {
-                await this.pgClient.query(`LISTEN ${ident(channel)}`);
-                this.emit('listen', channel);
-            }
-        } else {
+        // istanbul ignore else
+        if (await lock.acquire()) {
             await this.pgClient.query(`LISTEN ${ident(channel)}`);
-            this.locks[channel] = new NoLock();
             this.emit('listen', channel);
         }
     }
@@ -385,9 +379,7 @@ export class PgPubSub extends EventEmitter {
     public async unlisten(channel: string): Promise<void> {
         await this.pgClient.query(`UNLISTEN ${ident(channel)}`);
 
-        if (this.options.singleListener) {
-            await (await this.lock(channel)).release();
-        } else if (this.locks[channel]) {
+        if (this.locks[channel]) {
             await this.locks[channel].destroy();
             delete this.locks[channel];
         }
@@ -403,14 +395,7 @@ export class PgPubSub extends EventEmitter {
      */
     public async unlistenAll(): Promise<void> {
         await this.pgClient.query(`UNLISTEN *`);
-
-        if (this.options.singleListener) {
-            await this.release();
-        } else {
-            await Promise.all(Object.keys(this.locks)
-                .map(channel => this.locks[channel].destroy()));
-            this.locks = {};
-        }
+        await this.release();
 
         this.emit('unlisten', Object.keys(this.locks));
     }
@@ -512,19 +497,24 @@ export class PgPubSub extends EventEmitter {
         for (const event of events) {
             // make sure we won't flood events with given handler,
             // so do a cleanup first
-            const listeners = this.pgClient.listeners(event);
-
-            for (const listener of listeners) {
-                if (listener === handler) {
-                    this.pgClient.removeListener(event, handler);
-                }
-            }
-
+            this.clearListeners(event, handler);
             // now set event handler
             this.pgClient.once(event, handler);
         }
 
         return this;
+    }
+
+    /**
+     * Clears all similar handlers under given event
+     *
+     * @param {string} event - event name
+     * @param {(...args: any) => any} handler - handler reference
+     */
+    private clearListeners(event: string, handler: (...args: any) => any) {
+        this.pgClient.listeners(event).forEach(listener =>
+            listener === handler && this.pgClient.off(event, handler),
+        );
     }
 
     /**
@@ -535,16 +525,16 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     private async onNotification(notification: Notification): Promise<void> {
+        const lock = await this.lock(notification.channel);
+
         if (RX_LOCK_CHANNEL.test(notification.channel)) {
             // as we use the same connection with locks mechanism
             // we should avoid pub/sub client to parse lock channels data
             return ;
         }
 
-        if (this.options.singleListener) {
-            if (!(await this.lock(notification.channel)).isAcquired()) {
-                return; // we are not really a listener
-            }
+        if (this.options.singleListener && !lock.isAcquired()) {
+            return; // we are not really a listener
         }
 
         const payload = unpack(notification.payload);
@@ -602,17 +592,34 @@ export class PgPubSub extends EventEmitter {
      */
     private async lock(channel: string): Promise<AnyLock> {
         if (!this.locks[channel]) {
-            this.locks[channel] = new PgIpLock(
+            this.locks[channel] = await this.createLock(channel);
+        }
+
+        return this.locks[channel];
+    }
+
+    /**
+     * Instantiates new lock, properly initializes it and returns
+     *
+     * @param {string} channel
+     * @return {Promise<AnyLock>}
+     */
+    private async createLock(channel: string): Promise<AnyLock> {
+        if (this.options.singleListener) {
+            const lock = new PgIpLock(
                 channel,
                 this.pgClient,
                 this.logger,
                 this.options.acquireInterval,
             );
-            await this.locks[channel].init();
-            this.locks[channel].onRelease(chan => this.listen(chan));
+
+            await lock.init();
+            lock.onRelease(chan => this.listen(chan));
+
+            return lock;
         }
 
-        return this.locks[channel];
+        return new NoLock();
     }
 
     /**
@@ -628,6 +635,8 @@ export class PgPubSub extends EventEmitter {
             if (lock.isAcquired()) {
                 await lock.release();
             }
+
+            delete this.locks[channel];
         }));
     }
 

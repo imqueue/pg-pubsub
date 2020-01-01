@@ -204,6 +204,24 @@ describe('PgPubSub', () => {
 
             expect(spy.calledWith('message', 'TestChannel', true)).to.be.false;
         });
+        it('should avoid handling lock channel messages', async () => {
+            pubSub.options.singleListener = true;
+
+            const spy = sinon.spy(pubSub, 'emit');
+            const spyChannel = sinon.spy(pubSub.channels, 'emit');
+            const channel = `__${PgIpLock.name}__:TestChannel`;
+
+            await pubSub.listen('TestChannel');
+            await pgClient.emit('notification', {
+                channel,
+                payload: 'true',
+            });
+
+            expect(spy.calledWithExactly(
+                ['message', channel, true] as any,
+            )).to.be.false;
+            expect(spyChannel.called).to.be.false;
+        });
     });
     describe('unlisten()', () => {
         it('should call SQL UNLISTEN "channel" command', async () => {
@@ -219,6 +237,13 @@ describe('PgPubSub', () => {
             await pubSub.unlisten('Test');
             const [{ args: [arg] }] = spy.getCalls();
             expect(/^UNLISTEN\s+"Test"/.test(arg.trim()));
+        });
+        it('should destroy existing locks', async () => {
+            await pubSub.listen('Test');
+            const spy = sinon.spy((pubSub as any).locks.Test, 'destroy');
+            expect(spy.called).to.be.false;
+            await pubSub.unlisten('Test');
+            expect(spy.called).to.be.true;
         });
     });
     describe('unlistenAll()', () => {
@@ -271,7 +296,7 @@ describe('PgPubSub', () => {
             await pubSub3.notify('ChannelTwo', {});
 
             // make sure all async events handled
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise(resolve => setTimeout(resolve));
         });
         afterEach(async () => Promise.all([
             pubSub1.destroy(),
