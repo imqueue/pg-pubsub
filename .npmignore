@@ -38,4 +38,8 @@ debug*
 Dockerfile
 Thumbs.db
 tsconfig.json
-nodemon.json
+tslint.json
+.codebeatsettings
+.codebeatignore
+bin/
+.git/
