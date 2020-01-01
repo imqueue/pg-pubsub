@@ -77,6 +77,15 @@ export interface PgPubSubOptions extends ClientConfig {
      * @type {boolean}
      */
     singleListener: boolean;
+
+    /**
+     * If set to true, messages sent from a given connection will be filtered
+     * and will not appear on the same connection if it's do `LISTEN` to the
+     * notified channel. By default is false.
+     *
+     * @type {boolean}
+     */
+    filtered: boolean;
 }
 
 /**
@@ -90,4 +99,5 @@ export const DefaultOptions: PgPubSubOptions = Object.freeze({
     retryDelay: RETRY_DELAY,
     singleListener: IS_ONE_PROCESS,
     acquireInterval: ACQUIRE_INTERVAL,
+    filtered: false,
 });

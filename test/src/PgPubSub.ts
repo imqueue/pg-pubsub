@@ -91,7 +91,7 @@ describe('PgPubSub', () => {
                 done();
             });
 
-            pubSub.connect();
+            pubSub.connect().catch(() => { /**/ });
         });
         it('should support automatic reconnect on errors', done => {
             let counter = 0;
@@ -111,7 +111,7 @@ describe('PgPubSub', () => {
                 }
             });
 
-            pubSub.connect();
+            pubSub.connect().catch(() => { /* ignore faking errors */ });
         });
         it('should emit error and end if retry limit reached', async () => {
             // emulate connection failure
@@ -119,9 +119,7 @@ describe('PgPubSub', () => {
                 pgClient.emit('end');
             };
 
-            try {
-                await pubSub.connect();
-            } catch (err) {
+            try { await pubSub.connect(); } catch (err) {
                 expect(err).to.be.instanceOf(Error);
                 expect(err.message).equals(
                     `Connect failed after ${RETRY_LIMIT} retries...`,
@@ -406,6 +404,47 @@ describe('PgPubSub', () => {
 
             expect(one.called).to.be.false;
             expect(two.called).to.be.true;
+        });
+    });
+    describe('setProcessId()', () => {
+        it('should set process id', async () => {
+            const stub = sinon.stub(pgClient, 'query').resolves({
+                rows: [{ pid: 7777 }],
+            });
+            await (pubSub as any).setProcessId();
+            expect((pubSub as any).processId).equals(7777);
+            stub.restore();
+        });
+        it('should filter messages if set and "filtered" option is set',
+            async () => {
+            pubSub.options.singleListener = false;
+            pubSub.options.filtered = false;
+            (pubSub as any).processId = 7777;
+
+            await pubSub.listen('Test');
+            let counter = 0;
+
+            pubSub.channels.on('Test', () => ++counter);
+            pgClient.emit('notification', {
+                processId: 7777,
+                channel: 'Test',
+                payload: 'true',
+            });
+
+            await new Promise(res => setTimeout(res));
+
+            expect(counter).equals(1);
+
+            pubSub.options.filtered = true;
+            pgClient.emit('notification', {
+                processId: 7777,
+                channel: 'Test',
+                payload: 'true',
+            });
+
+            await new Promise(res => setTimeout(res));
+
+            expect(counter).equals(1);
         });
     });
     describe('destroy()', () => {
