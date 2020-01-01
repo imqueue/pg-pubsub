@@ -39,7 +39,11 @@ describe('IPCLock', () => {
 
     beforeEach(() => {
         client = new Client() as PgClient;
-        lock = new PgIpLock('LockTest', client, console, ACQUIRE_INTERVAL);
+        lock = new PgIpLock('LockTest', {
+            pgClient: client,
+            logger: console,
+            acquireInterval: ACQUIRE_INTERVAL,
+        });
     });
     afterEach(async () => lock.destroy());
 
@@ -50,7 +54,7 @@ describe('IPCLock', () => {
     describe('constructor()', () => {
         it('should accept channel name and pg client as arguments', () => {
             expect(lock.channel).equals(`__${PgIpLock.name}__:LockTest`);
-            expect(lock.pgClient).equals(client);
+            expect(lock.options.pgClient).equals(client);
         });
     });
     describe('init()', () => {
@@ -96,7 +100,7 @@ describe('IPCLock', () => {
             lock.onRelease(() => { /**/ });
             await lock.destroy();
 
-            const spyOn = sinon.spy(lock.pgClient, 'on');
+            const spyOn = sinon.spy(lock.options.pgClient, 'on');
             await lock.init();
 
             const calls = spyOn.getCalls();
