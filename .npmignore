@@ -30,6 +30,7 @@ debug*
 *.ts
 *.tgz
 !*.d.ts
+debug*.d.ts
 .DS_Store
 .env
 .eslintrc
