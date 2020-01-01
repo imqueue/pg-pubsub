@@ -91,6 +91,35 @@ describe('IPCLock', () => {
 
             stub.restore();
         });
+        it('should re-apply notify handler on re-use', async () => {
+            await lock.init();
+            lock.onRelease(() => { /**/ });
+            await lock.destroy();
+
+            const spyOn = sinon.spy(lock.pgClient, 'on');
+            await lock.init();
+
+            const calls = spyOn.getCalls();
+
+            expect(spyOn.called).to.be.true;
+            expect(calls[0].args).deep.equals([
+                'notification',
+                (lock as any).notifyHandler,
+            ]);
+        });
+        it('should periodically re-acquire after init', async () => {
+            const spyAcquire = sinon.spy(lock, 'acquire');
+            await lock.init();
+            const stubAcquire = sinon.stub(client, 'query')
+                .throws(new FakeError());
+            await new Promise(res => setTimeout(res, ACQUIRE_INTERVAL * 2 + 5));
+
+            expect(spyAcquire.calledTwice).to.be.true;
+
+            // await compLock.destroy();
+            await lock.destroy();
+            stubAcquire.restore();
+        });
     });
     describe('schemaExists()', () => {
         it('should return true if schema exists in db', async () => {

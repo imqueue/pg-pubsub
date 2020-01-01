@@ -18,4 +18,4 @@ export const SHUTDOWN_TIMEOUT = 10;
 export const RETRY_DELAY      = 10;
 export const RETRY_LIMIT      = 3;
 export const IS_ONE_PROCESS   = true;
-export const ACQUIRE_INTERVAL = 30;
+export const ACQUIRE_INTERVAL = 10;
