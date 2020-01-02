@@ -246,43 +246,52 @@ npm run doc
 
 ## Finally
 
-Basic example of code (copy-paste, run as several processes and see what's 
-happened, just don't forget to use correct db connection string):
+Try to run the following minimal example code of single listener scenario (do
+not forget to set proper database connection string):
 
 ~~~typescript
 import { PgPubSub } from '@imqueue/pg-pubsub';
 import Timer = NodeJS.Timer;
 
-(async () => {
-    const CHANNEL = 'HelloChannel';
-    const pubSub = new PgPubSub({
-        connectionString: 'postgres://postgres@localhost:5432/postgres',
-    });
-    let timer: Timer;
+let timer: Timer;
+const NOTIFY_DELAY = 2000;
+const CHANNEL = 'HelloChannel';
 
-    pubSub.on('listen', channel => {
-        console.info(`Listening from ${channel}...`);
-        timer && clearInterval(timer);
-    });
-    pubSub.on('connect', async () => {
-        console.info('Database connected!');
-        await pubSub.listen(CHANNEL);
-        if (pubSub.isActive(CHANNEL)) {
-            return ;
-        }
-        timer = setInterval(async () => {
-            await pubSub.notify(CHANNEL, { hello: { from: process.pid } });
-        }, 5000);
-    });
-    pubSub.on('notify', channel => {
-        console.log(`Message sent to ${channel}`);
-    });
-    pubSub.on('error', console.error);
-    pubSub.on('end', () => console.warn('Connection closed!'));
-    pubSub.channels.on(CHANNEL, console.log);
+const pubSub = new PgPubSub({
+    connectionString: 'postgres://postgres@localhost:5432/postgres',
+    singleListener: true,
+    // filtered: true,
+});
 
-    await pubSub.connect();
-})();
+pubSub.on('listen', channel => console.info(`Listening to ${channel}...`));
+pubSub.on('connect', async () => {
+    console.info('Database connected!');
+    await pubSub.listen(CHANNEL);
+    timer = setInterval(async () => {
+        await pubSub.notify(CHANNEL, { hello: { from: process.pid } });
+    }, NOTIFY_DELAY);
+});
+pubSub.on('notify', channel => console.log(`${channel} notified`));
+pubSub.on('end', () => console.warn('Connection closed!'));
+pubSub.channels.on(CHANNEL, console.log);
+pubSub.connect().catch(err => console.error('Connection error:', err));
+~~~
+
+Or take a look at other minimal code 
+[examples](https://github.com/imqueue/pg-pubsub/tree/examples)
+
+Play with them locally:
+
+~~~bash
+git clone -b examples git://github.com/imqueue/pg-pubsub.git examples
+cd examples
+npm i
+~~~
+
+Now you can start any of them, for example:
+
+~~~bash
+./node_modules/.bin/ts-node filtered.ts
 ~~~
 
 ## Contributing
