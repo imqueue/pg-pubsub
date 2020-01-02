@@ -1,105 +1,28 @@
 {
-  "name": "@imqueue/pg-pubsub",
-  "version": "1.3.1",
-  "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
-  "keywords": [
-    "listen",
-    "notify",
-    "postgres",
-    "postgresql",
-    "pg-listen",
-    "pg-notify",
-    "pubsub",
-    "publish",
-    "subscribe",
-    "events",
-    "publish-subscribe",
-    "inter-process-lock"
-  ],
+  "name": "pg-pubsub-examples",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "prepublishOnly": "npm run build",
-    "postpublish": "./bin/wiki.sh",
-    "clean:dts": "find . -name '*.d.ts' -not -wholename '*node_modules*' -type f -delete",
-    "clean:map": "find . -name '*.js.map' -not -wholename '*node_modules*' -type f -delete",
-    "clean:js": "find . -name '*.js' -not -wholename '*node_modules*' -not -wholename '*bin*' -type f -delete",
-    "clean:build": "rm -rf ./node_modules/@types ; find . -name '*.js.map' -type f -delete ; find . -name '*.ts' -type f -delete",
-    "clean:test": "rm -rf .nyc_output coverage",
-    "clean:doc": "rm -rf docs",
-    "clean:wiki": "rm -rf wiki",
-    "clean": "npm run clean:test ; npm run clean:dts ; npm run clean:map ; npm run clean:js ; npm run clean:doc ; npm run clean:wiki",
-    "build": "tsc",
-    "mocha": "nyc mocha",
-    "show:test": "/usr/bin/env node -e \"require('open')('file://`pwd`/coverage/index.html',{wait:false});\"",
-    "show:doc": "/usr/bin/env node -e \"require('open')('file://`pwd`/docs/index.html',{wait:false});\"",
-    "test": "npm run build && npm run mocha && npm run show:test && ((test ! -z \"${CI}\" && nyc report --reporter=text-lcov | coveralls) || exit 0)",
-    "doc": "npm run clean && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output|examples)/**/*\" --mode file --out ./docs --plugin typedoc-plugin-as-member-of . && npm run show:doc",
-    "wiki": "npm run clean && typedoc --excludePrivate --excludeExternals --hideGenerator --exclude \"**/+(debug|test|node_modules|docs|coverage|.nyc_output|examples)/**/*\" --mode file --out ./wiki --plugin typedoc-plugin-as-member-of,typedoc-plugin-markdown --hideSources --theme markdown . && ./bin/rename.js",
-    "help": "npm-scripts-help"
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imqueue/pg-pubsub.git"
   },
   "author": "imqueue.com <support@imqueue.com>",
   "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/imqueue/pg-pubsub.git"
-  },
   "bugs": {
     "url": "https://github.com/imqueue/pg-pubsub/issues"
   },
-  "homepage": "https://github.com/imqueue/pg-pubsub",
+  "homepage": "https://github.com/imqueue/pg-pubsub#readme",
   "dependencies": {
-    "@types/node": "^13.1.1",
-    "@types/pg": "^7.14.0",
-    "@types/pg-format": "^1.0.0",
-    "pg": "^7.16.0",
-    "pg-format": "^1.0.4",
-    "uuid": "^3.3.3"
+    "@imqueue/pg-pubsub": "^1.3.1"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.7",
-    "@types/mocha": "^5.2.7",
-    "@types/mock-require": "^2.0.0",
-    "@types/sinon": "^7.5.1",
-    "@types/uuid": "^3.4.6",
-    "chai": "^4.2.0",
-    "coveralls": "^3.0.9",
-    "glob": "^7.1.6",
-    "mocha": "^6.2.2",
-    "mocha-lcov-reporter": "^1.3.0",
-    "mock-require": "^3.0.3",
-    "npm-scripts-help": "^0.8.0",
-    "nyc": "^15.0.0",
-    "open": "^7.0.0",
-    "sinon": "^8.0.1",
-    "source-map-support": "^0.5.16",
+    "@types/node": "^13.1.2",
     "ts-node": "^8.5.4",
     "tslint": "^5.20.1",
-    "typedoc": "^0.15.6",
-    "typedoc-plugin-as-member-of": "^1.0.2",
-    "typedoc-plugin-markdown": "^2.2.14",
     "typescript": "^3.7.4"
-  },
-  "main": "index.js",
-  "typescript": {
-    "definitions": "index.d.ts"
-  },
-  "nyc": {
-    "check-coverage": true,
-    "extension": [
-      ".ts"
-    ],
-    "exclude": [
-      "**/*.d.ts",
-      "**/test/**",
-      "**/examples/**"
-    ],
-    "require": [
-      "ts-node/register"
-    ],
-    "reporter": [
-      "html",
-      "text",
-      "text-summary",
-      "lcovonly"
-    ]
   }
 }
