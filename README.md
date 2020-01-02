@@ -85,6 +85,8 @@ With such instantiation options natural behavior of PgPubSub will be as follows:
 
 [![Natural behavior](https://raw.githubusercontent.com/Mikhus/blob/master/pg-pubsub.gif)]()
 
+[See all options](https://github.com/imqueue/pg-pubsub/wiki/PgPubSubOptions).
+
 ### Listening channels
 
 After connection established you may decide to listen for any numbers of 
