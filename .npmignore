@@ -44,3 +44,4 @@ tslint.json
 .codebeatignore
 bin/
 .git/
+examples/
