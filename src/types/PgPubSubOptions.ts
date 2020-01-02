@@ -79,9 +79,8 @@ export interface PgPubSubOptions extends ClientConfig {
     singleListener: boolean;
 
     /**
-     * If set to true, messages sent from a given connection will be filtered
-     * and will not appear on the same connection if it's do `LISTEN` to the
-     * notified channel. By default is false.
+     * If set to true, self emitted messages will be filtered on the connection.
+     * By default is false.
      *
      * @type {boolean}
      */

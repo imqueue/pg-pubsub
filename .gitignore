@@ -23,6 +23,7 @@ pg-pubsub.wiki
 debug*
 *.txt
 *.js
+!bin/*.js
 *.d.ts
 *.js.map
 *.pid
