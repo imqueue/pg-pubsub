@@ -16,12 +16,26 @@
 import { AnyJson, AnyLogger } from './types';
 
 /**
+ * Performs JSON.stringify on a given input taking into account
+ * pretty flag.
+ *
+ * @access private
+ * @param {AnyJson} input - serializable value
+ * @param {boolean} [pretty] - serialized format output prettify flag
+ */
+function stringify(input: AnyJson, pretty?: boolean) {
+    return pretty
+        ? JSON.stringify(input, null, 2)
+        : JSON.stringify(input)
+}
+
+/**
  * Serializes given input object to JSON string. On error will return
  * serialized null value
  *
- * @param {AnyJson} input - serializable object
+ * @param {AnyJson} input - serializable value
  * @param {AnyLogger} [logger] - logger to handle errors logging with
- * @param {boolean} [pretty] - serialized format output
+ * @param {boolean} [pretty] - serialized format output prettify flag
  * @return {string}
  */
 export function pack(
@@ -34,9 +48,7 @@ export function pack(
     }
 
     try {
-        return pretty
-            ? JSON.stringify(input, null, 2)
-            : JSON.stringify(input);
+        return stringify(input, pretty);
     } catch (err) {
         if (logger && logger.warn) {
             logger.warn('pack() error:', err);

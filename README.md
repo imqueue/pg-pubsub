@@ -11,6 +11,12 @@
     <a href="https://codebeat.co/projects/github-com-imqueue-pg-pubsub-master">
         <img src="https://codebeat.co/badges/579f6d7c-df61-4bc2-aa2e-d4fa9a3abf5a" alt="Codebeat Grade">
     </a>
+    <a href="https://codeclimate.com/github/imqueue/pg-pubsub/maintainability">
+        <img src="https://api.codeclimate.com/v1/badges/22de50ce1d4b1e44c0ad/maintainability">
+    </a>
+    <a href="https://codeclimate.com/github/imqueue/pg-pubsub/test_coverage">
+        <img src="https://api.codeclimate.com/v1/badges/22de50ce1d4b1e44c0ad/test_coverage" />
+    </a>
     <a href="https://coveralls.io/github/imqueue/pg-pubsub?branch=master">
         <img src="https://coveralls.io/repos/github/imqueue/pg-pubsub/badge.svg?branch=master" alt="Coverage Status">
     </a>
