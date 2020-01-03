@@ -26,7 +26,7 @@ import { AnyJson, AnyLogger } from './types';
 function stringify(input: AnyJson, pretty?: boolean) {
     return pretty
         ? JSON.stringify(input, null, 2)
-        : JSON.stringify(input)
+        : JSON.stringify(input);
 }
 
 /**
