@@ -47,10 +47,10 @@
   },
   "homepage": "https://github.com/imqueue/pg-pubsub",
   "dependencies": {
-    "@types/node": "^13.1.1",
-    "@types/pg": "^7.14.0",
+    "@types/node": "^13.1.2",
+    "@types/pg": "^7.14.1",
     "@types/pg-format": "^1.0.0",
-    "pg": "^7.16.0",
+    "pg": "^7.17.0",
     "pg-format": "^1.0.4",
     "uuid": "^3.3.3"
   },
@@ -69,7 +69,7 @@
     "npm-scripts-help": "^0.8.0",
     "nyc": "^15.0.0",
     "open": "^7.0.0",
-    "sinon": "^8.0.1",
+    "sinon": "^8.0.2",
     "source-map-support": "^0.5.16",
     "ts-node": "^8.5.4",
     "tslint": "^5.20.1",
