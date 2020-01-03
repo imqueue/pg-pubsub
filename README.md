@@ -12,3 +12,21 @@ scenario usage examples available:
  - [Single-process Listener](single-listener.ts). All processes emitting
    messages to the channel, but only one process at a time is listening
    to that channel.
+
+## Install
+
+~~~bash
+git clone -b examples git://github.com/imqueue/pg-pubsub.git examples
+cd examples
+npm i
+~~~
+
+Now you can start any of them, for example:
+
+~~~bash
+./node_modules/.bin/ts-node filtered.ts
+~~~
+
+## License
+
+[ISC](https://github.com/imqueue/pg-pubsub/blob/examples/LICENSE)
