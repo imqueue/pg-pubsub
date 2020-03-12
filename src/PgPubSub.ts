@@ -498,7 +498,7 @@ export class PgPubSub extends EventEmitter {
      */
     private setOnceHandler(
         events: string[],
-        handler: (...args: any) => any,
+        handler: (...args: any[]) => any,
     ): PgPubSub {
         for (const event of events) {
             // make sure we won't flood events with given handler,
@@ -517,7 +517,7 @@ export class PgPubSub extends EventEmitter {
      * @param {string} event - event name
      * @param {(...args: any) => any} handler - handler reference
      */
-    private clearListeners(event: string, handler: (...args: any) => any) {
+    private clearListeners(event: string, handler: (...args: any[]) => any) {
         this.pgClient.listeners(event).forEach(listener =>
             listener === handler && this.pgClient.off(event, handler),
         );

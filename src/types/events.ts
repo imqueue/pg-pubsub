@@ -76,7 +76,7 @@ export declare function unlisten(channels: string[]): void;
  *
  * @asMemberOf PgPubSub
  * @event error
- * @param {Error} err - error occured during connection
+ * @param {Error} err - error occurred during connection
  */
 export declare function error(err: Error): void;
 

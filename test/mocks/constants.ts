@@ -13,9 +13,15 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+// noinspection JSUnusedGlobalSymbols
 export const SCHEMA_NAME      = 'pgip_lock';
+// noinspection JSUnusedGlobalSymbols
 export const SHUTDOWN_TIMEOUT = 10;
+// noinspection JSUnusedGlobalSymbols
 export const RETRY_DELAY      = 10;
+// noinspection JSUnusedGlobalSymbols
 export const RETRY_LIMIT      = 3;
+// noinspection JSUnusedGlobalSymbols
 export const IS_ONE_PROCESS   = true;
+// noinspection JSUnusedGlobalSymbols
 export const ACQUIRE_INTERVAL = 10;

@@ -22,7 +22,9 @@ export interface ClientConfig {
     connectionString?: string;
 }
 
+// noinspection JSUnusedGlobalSymbols
 export class Client extends EventEmitter {
+    // noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
     public constructor(options: ClientConfig) {
         super();
         this.setMaxListeners(Infinity);
@@ -30,6 +32,7 @@ export class Client extends EventEmitter {
     public connect() {
         this.emit('connect');
     }
+    // noinspection JSUnusedGlobalSymbols
     public end() {
         this.emit('end');
     }
