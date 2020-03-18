@@ -53,7 +53,7 @@ export class PgIpLock implements AnyLock {
      *
      * @return {string}
      */
-    public static get schemaName() {
+    public static get schemaName(): string {
         return ident(SCHEMA_NAME);
     }
 
@@ -78,7 +78,7 @@ export class PgIpLock implements AnyLock {
     }
 
     private static instances: PgIpLock[] = [];
-    private acquired: boolean = false;
+    private acquired = false;
     private notifyHandler: (message: Notification) => void;
     private acquireTimer?: Timeout;
 
@@ -131,14 +131,14 @@ export class PgIpLock implements AnyLock {
      *
      * @param {(channel: string) => void} handler
      */
-    public onRelease(handler: (channel: string) => void) {
+    public onRelease(handler: (channel: string) => void): void {
         if (!!this.notifyHandler) {
             throw new TypeError(
                 'Release handler for IPC lock has been already set up!',
             );
         }
 
-        this.notifyHandler = message => {
+        this.notifyHandler = (message): void => {
             // istanbul ignore else
             // we should skip messages from pub/sub channels and listen
             // only to those which are ours
@@ -318,7 +318,7 @@ export class PgIpLock implements AnyLock {
      *
      * @return {Promise<void>}
      */
-    private async createDeadlockCheck() {
+    private async createDeadlockCheck(): Promise<void> {
         await this.options.pgClient.query(`
             CREATE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
                 old_app TEXT,
@@ -339,15 +339,15 @@ export class PgIpLock implements AnyLock {
     }
 }
 
-export const RX_LOCK_CHANNEL: RegExp = new RegExp(`^__${PgIpLock.name}__:`);
+export const RX_LOCK_CHANNEL = new RegExp(`^__${PgIpLock.name}__:`);
 
 let timer: any;
 /**
  * Performs graceful shutdown of running process releasing all instantiated
  * locks and properly destroy all their instances.
  */
-async function terminate() {
-    let code: number = 0;
+async function terminate(): Promise<void> {
+    let code = 0;
 
     timer && clearTimeout(timer);
     timer = setTimeout(() => process.exit(code), SHUTDOWN_TIMEOUT);
