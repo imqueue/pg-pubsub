@@ -23,12 +23,13 @@ export class NoLock implements AnyLock {
     /**
      * Init no lock
      */
-    public async init() {
-        //
+    public async init(): Promise<void> {
+        return Promise.resolve();
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public onRelease(handler: (channel: string) => void): void {
-        //
+        return ;
     }
 
     /**
@@ -37,7 +38,7 @@ export class NoLock implements AnyLock {
      * @return {Promise<boolean>}
      */
     public async acquire(): Promise<boolean> {
-        return true;
+        return Promise.resolve(true);
     }
 
     /**
@@ -46,7 +47,7 @@ export class NoLock implements AnyLock {
      * @return {Promise<void>}
      */
     public async release(): Promise<void> {
-        //
+        return Promise.resolve();
     }
 
     /**
@@ -64,6 +65,6 @@ export class NoLock implements AnyLock {
      * @return {Promise<void>}
      */
     public async destroy(): Promise<void> {
-        //
+        return Promise.resolve();
     }
 }

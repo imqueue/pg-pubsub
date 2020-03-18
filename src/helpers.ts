@@ -22,8 +22,9 @@ import { AnyJson, AnyLogger } from './types';
  * @access private
  * @param {AnyJson} input - serializable value
  * @param {boolean} [pretty] - serialized format output prettify flag
+ * @return {string}
  */
-function stringify(input: AnyJson, pretty?: boolean) {
+function stringify(input: AnyJson, pretty?: boolean): string {
     return pretty
         ? JSON.stringify(input, null, 2)
         : JSON.stringify(input);
@@ -41,7 +42,7 @@ function stringify(input: AnyJson, pretty?: boolean) {
 export function pack(
     input: AnyJson,
     logger?: AnyLogger,
-    pretty: boolean = false,
+    pretty = false,
 ): string {
     if (typeof input === 'undefined') {
         return 'null';

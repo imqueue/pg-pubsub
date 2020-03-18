@@ -40,7 +40,6 @@ import {
     unpack,
 } from '.';
 import { PgChannelEmitter } from './PgChannelEmitter';
-import Timeout = NodeJS.Timeout;
 
 // PgPubSub Events
 export declare interface PgPubSub {
@@ -296,7 +295,7 @@ export class PgPubSub extends EventEmitter {
     public readonly channels: PgChannelEmitter = new PgChannelEmitter();
 
     private locks: { [channel: string]: AnyLock } = {};
-    private retry: number = 0;
+    private retry = 0;
     private processId: number;
 
     /**
@@ -330,7 +329,7 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async connect(): Promise<void> {
-        return new Promise(async (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             this.setOnceHandler(['end', 'error'], this.reconnect);
             this.pgClient.once('connect', async () => {
                 await this.setAppName();
@@ -340,7 +339,7 @@ export class PgPubSub extends EventEmitter {
             });
             this.once('error', reject);
 
-            await this.pgClient.connect();
+            this.pgClient.connect();
         });
     }
 
@@ -400,7 +399,7 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async unlistenAll(): Promise<void> {
-        await this.pgClient.query(`UNLISTEN *`);
+        await this.pgClient.query('UNLISTEN *');
         await this.release();
 
         this.emit('unlisten', Object.keys(this.locks));
@@ -517,7 +516,10 @@ export class PgPubSub extends EventEmitter {
      * @param {string} event - event name
      * @param {(...args: any) => any} handler - handler reference
      */
-    private clearListeners(event: string, handler: (...args: any[]) => any) {
+    private clearListeners(
+        event: string,
+        handler: (...args: any[]) => any,
+    ): void {
         this.pgClient.listeners(event).forEach(listener =>
             listener === handler && this.pgClient.off(event, handler),
         );
@@ -576,7 +578,7 @@ export class PgPubSub extends EventEmitter {
      * @access private
      * @return {number}
      */
-    private reconnect(): Timeout {
+    private reconnect(): number {
         return setTimeout(async () => {
             if (this.options.retryLimit <= ++this.retry) {
                 this.emit('error', new Error(
@@ -591,7 +593,7 @@ export class PgPubSub extends EventEmitter {
             try { await this.connect(); } catch (err) { /**/ }
         },
 
-        this.options.retryDelay) as Timeout;
+        this.options.retryDelay) as any as number;
     }
 
     /**
@@ -672,7 +674,7 @@ export class PgPubSub extends EventEmitter {
      *
      * @return {Promise<void>}
      */
-    private async setProcessId() {
+    private async setProcessId(): Promise<void> {
         try {
             const { rows: [{ pid }] } = await this.pgClient.query(`
                 SELECT pid FROM pg_stat_activity

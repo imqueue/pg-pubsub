@@ -98,10 +98,10 @@ export declare function reconnect(retries: number): void;
  *
  * @asMemberOf PgPubSub
  * @event message
- * @param {string} channel - channel to which notification corresponding to
+ * @param {string} chan - channel to which notification corresponding to
  * @param {AnyJson} payload - notification message payload
  */
-export declare function message(channel: string, payload: AnyJson): void;
+export declare function message(chan: string, payload: AnyJson): void;
 
 /**
  * `'notify'` event occurs each time new message has been published to a
@@ -109,7 +109,7 @@ export declare function message(channel: string, payload: AnyJson): void;
  *
  * @asMemberOf PgPubSub
  * @event notify
- * @param {string} channel - channel to which notification was sent
+ * @param {string} chan - channel to which notification was sent
  * @param {AnyJson} payload - notification message payload
  */
-export declare function notify(channel: string, payload: AnyJson): void;
+export declare function notify(chan: string, payload: AnyJson): void;
