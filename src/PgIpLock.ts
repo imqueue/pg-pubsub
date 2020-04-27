@@ -119,7 +119,7 @@ export class PgIpLock implements AnyLock {
         await this.listen();
 
         !this.acquireTimer && (this.acquireTimer = setInterval(
-            async () => !this.acquired && await this.acquire(),
+            async () => !this.acquired && this.acquire(),
             this.options.acquireInterval,
         ));
     }

@@ -585,12 +585,12 @@ export class PgPubSub extends EventEmitter {
                     `Connect failed after ${this.retry} retries...`,
                 ));
 
-                return await this.close();
+                return this.close();
             }
 
             this.setOnceHandler(['connect'], this.onReconnect);
 
-            try { await this.connect(); } catch (err) { /**/ }
+            try { await this.connect(); } catch (err) { /* ignore */ }
         },
 
         this.options.retryDelay) as any as number;
