@@ -309,7 +309,7 @@ export class PgPubSub extends EventEmitter {
     ) {
         super();
 
-        this.options = Object.assign({}, DefaultOptions, options);
+        this.options = { ...DefaultOptions, ...options };
         this.pgClient = (this.options.pgClient || new Client(this.options)) as
             PgClient;
 
