@@ -91,7 +91,9 @@ export class PgIpLock implements AnyLock {
         public readonly channel: string,
         public readonly options: PgIpLockOptions,
     ) {
-        this.channel = `__${PgIpLock.name}__:${channel}`;
+        this.channel = `__${PgIpLock.name}__:${
+            channel.replace(RX_LOCK_CHANNEL, '')
+        }`;
         PgIpLock.instances.push(this);
     }
 
