@@ -357,7 +357,9 @@ async function terminate(): Promise<void> {
         return ;
     }
 
-    try { await PgIpLock.destroy(); } catch (err) {
+    try {
+        await PgIpLock.destroy();
+    } catch (err) {
         code = 1;
 
         // istanbul ignore next

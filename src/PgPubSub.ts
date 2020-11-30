@@ -339,6 +339,7 @@ export class PgPubSub extends EventEmitter {
             });
             this.once('error', reject);
 
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             this.pgClient.connect();
         });
     }
@@ -375,7 +376,7 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
-     * Stops listening of the given chanel, and, if singleListener option is
+     * Stops listening of the given channel, and, if singleListener option is
      * set to true - will release an acquired lock (if it was settled).
      *
      * @param {string} channel - channel name to unlisten
@@ -406,7 +407,7 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
-     * Performs NOTIFY to a given chanel with a given payload to all
+     * Performs NOTIFY to a given channel with a given payload to all
      * listening subscribers
      *
      * @param {string} channel - channel to publish to

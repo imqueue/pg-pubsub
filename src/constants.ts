@@ -13,9 +13,11 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-export const SCHEMA_NAME      = 'pgip_lock';
-export const SHUTDOWN_TIMEOUT = 500;
-export const RETRY_DELAY      = 100;
-export const RETRY_LIMIT      = Infinity;
-export const IS_ONE_PROCESS   = true;
+export const SCHEMA_NAME = process.env.PG_PUBSUB_SCHEMA_NAME || 'pgip_lock';
+export const SHUTDOWN_TIMEOUT = +(
+    process.env.PG_PUBSUB_SHUTDOWN_TIMEOUT || 1000
+);
+export const RETRY_DELAY = 100;
+export const RETRY_LIMIT = Infinity;
+export const IS_ONE_PROCESS = true;
 export const ACQUIRE_INTERVAL = 30000;
