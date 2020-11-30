@@ -339,7 +339,7 @@ export class PgIpLock implements AnyLock {
     }
 }
 
-export const RX_LOCK_CHANNEL = new RegExp(`^__${PgIpLock.name}__:`);
+export const RX_LOCK_CHANNEL = new RegExp(`^(__${PgIpLock.name}__:)+`);
 
 let timer: any;
 /**
