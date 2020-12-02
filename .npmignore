@@ -42,6 +42,7 @@ tsconfig.json
 tslint.json
 .codebeatsettings
 .codebeatignore
+.eslintrc.json
 bin/
 .git/
 examples/
