@@ -93,6 +93,26 @@ describe('PgPubSub', () => {
 
             pubSub.connect().catch(() => { /**/ });
         });
+        it('should fire connect event only once', done => {
+            let connectCalls = 0;
+
+            // emulate termination
+            (pgClient as any).connect = () => {
+                if (connectCalls < 1) {
+                    pgClient.emit('error');
+                }
+
+                else {
+                    pgClient.emit('connect');
+                }
+
+                connectCalls++;
+            };
+
+            // test will fail if done is called more than once
+            pubSub.on('connect', done);
+            pubSub.connect().catch(() => { /**/ });
+        });
         it('should support automatic reconnect on errors', done => {
             let counter = 0;
 
