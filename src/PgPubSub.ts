@@ -330,14 +330,27 @@ export class PgPubSub extends EventEmitter {
      */
     public async connect(): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.setOnceHandler(['end', 'error'], this.reconnect);
-            this.pgClient.once('connect', async () => {
+            const onConnect = async () => {
                 await this.setAppName();
                 await this.setProcessId();
                 this.emit('connect');
                 resolve();
-            });
-            this.once('error', reject);
+                cleanup();
+            };
+
+            const onError = (err: any) => {
+                reject(err);
+                cleanup();
+            };
+
+            const cleanup = () => {
+                this.pgClient.off('connect', onConnect);
+                this.off('error', onError);
+            };
+
+            this.setOnceHandler(['end', 'error'], this.reconnect);
+            this.pgClient.once('connect', onConnect);
+            this.once('error', onError);
 
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             this.pgClient.connect();
