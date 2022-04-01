@@ -105,10 +105,8 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     public async init(): Promise<void> {
-        if (!await this.schemaExists()) {
-            await this.createSchema();
-            await Promise.all([this.createLock(), this.createDeadlockCheck()]);
-        }
+        await this.createSchema();
+        await Promise.all([this.createLock(), this.createDeadlockCheck()]);
 
         if (this.notifyHandler) {
             this.options.pgClient.on('notification', this.notifyHandler);
@@ -264,28 +262,13 @@ export class PgIpLock implements AnyLock {
     }
 
     /**
-     * Returns true if lock schema exists, false - otherwise
-     *
-     * @return {Promise<boolean>}
-     */
-    private async schemaExists(): Promise<boolean> {
-        const { rows } = await this.options.pgClient.query(`
-            SELECT schema_name
-            FROM information_schema.schemata
-            WHERE schema_name = '${PgIpLock.schemaName}'
-        `);
-
-        return (rows.length > 0);
-    }
-
-    /**
      * Creates lock db schema
      *
      * @return {Promise<void>}
      */
     private async createSchema(): Promise<void> {
         await this.options.pgClient.query(`
-            CREATE SCHEMA ${PgIpLock.schemaName}
+            CREATE SCHEMA IF NOT EXISTS ${PgIpLock.schemaName}
         `);
     }
 
@@ -296,18 +279,20 @@ export class PgIpLock implements AnyLock {
      */
     private async createLock(): Promise<void> {
         await this.options.pgClient.query(`
-            CREATE TABLE ${PgIpLock.schemaName}.lock (
+            CREATE TABLE IF NOT EXISTS ${PgIpLock.schemaName}.lock (
                 channel CHARACTER VARYING NOT NULL PRIMARY KEY,
                 app CHARACTER VARYING NOT NULL)
         `);
         // noinspection SqlResolve
         await this.options.pgClient.query(`
-            CREATE FUNCTION ${PgIpLock.schemaName}.notify_lock()
+            CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.notify_lock()
             RETURNS TRIGGER LANGUAGE PLPGSQL AS $$
             BEGIN PERFORM PG_NOTIFY(OLD.channel, '1'); RETURN OLD; END; $$
         `);
         // noinspection SqlResolve
         await this.options.pgClient.query(`
+            DROP TRIGGER IF EXISTS notify_release_lock_trigger
+                ON ${ PgIpLock.schemaName }.lock;
             CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
             AFTER DELETE ON ${PgIpLock.schemaName}.lock
             DEFERRABLE INITIALLY DEFERRED
@@ -322,7 +307,7 @@ export class PgIpLock implements AnyLock {
      */
     private async createDeadlockCheck(): Promise<void> {
         await this.options.pgClient.query(`
-            CREATE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
+            CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
                 old_app TEXT,
                 new_app TEXT)
             RETURNS TEXT LANGUAGE PLPGSQL AS $$
