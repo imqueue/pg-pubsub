@@ -114,6 +114,10 @@ export class PgIpLock implements AnyLock {
             await Promise.all([this.createLock(), this.createDeadlockCheck()]);
         }
 
+        if (DESTROY_LOCK_ON_START) {
+            await destroyLock();
+        }
+
         if (this.notifyHandler) {
             this.options.pgClient.on('notification', this.notifyHandler);
         }
@@ -384,9 +388,7 @@ async function destroyLock(): Promise<number> {
     }
 }
 
-if (DESTROY_LOCK_ON_START) {
-    process.on('SIGCHLD', destroyLock);
-} else {
+if (!DESTROY_LOCK_ON_START) {
     process.on('SIGTERM', terminate);
     process.on('SIGINT',  terminate);
     process.on('SIGABRT', terminate);
