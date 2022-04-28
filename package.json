@@ -1,6 +1,6 @@
 {
   "name": "@imqueue/pg-pubsub",
-  "version": "1.5.9",
+  "version": "1.5.10",
   "description": "Reliable PostgreSQL LISTEN/NOTIFY with inter-process lock support",
   "keywords": [
     "listen",
