@@ -360,4 +360,3 @@ async function terminate(): Promise<void> {
 process.on('SIGTERM', terminate);
 process.on('SIGINT',  terminate);
 process.on('SIGABRT', terminate);
-process.on('SIGCHLD', terminate);
