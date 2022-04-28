@@ -16,7 +16,11 @@
 import { Notification } from 'pg';
 import { ident, literal } from 'pg-format';
 import { clearInterval } from 'timers';
-import { SCHEMA_NAME, SHUTDOWN_TIMEOUT } from './constants';
+import {
+    DESTROY_LOCK_ON_START,
+    SCHEMA_NAME,
+    SHUTDOWN_TIMEOUT,
+} from './constants';
 import { AnyLock } from './types';
 import { PgIpLockOptions } from './types/PgIpLockOptions';
 import Timeout = NodeJS.Timeout;
@@ -353,26 +357,37 @@ async function terminate(): Promise<void> {
 
     timer && clearTimeout(timer);
     timer = setTimeout(() => process.exit(code), SHUTDOWN_TIMEOUT);
+    code = await destroyLock();
+}
 
+/**
+ * Destroys all instanced locks and returns exit code
+ */
+async function destroyLock(): Promise<number> {
     // istanbul ignore if
     if (!PgIpLock.hasInstances()) {
-        return ;
+        return 0;
     }
 
     try {
         await PgIpLock.destroy();
-    } catch (err) {
-        code = 1;
 
+        return 0;
+    } catch (err) {
         // istanbul ignore next
         (PgIpLock.hasInstances()
-            ? (PgIpLock as any).instances[0].options.logger
-            : console
+                ? (PgIpLock as any).instances[0].options.logger
+                : console
         ).error(err);
+
+        return 1;
     }
 }
 
-process.on('SIGTERM', terminate);
-process.on('SIGINT',  terminate);
-process.on('SIGABRT', terminate);
-process.on('SIGCHLD', terminate);
+if (DESTROY_LOCK_ON_START) {
+    process.on('SIGCHLD', destroyLock);
+} else {
+    process.on('SIGTERM', terminate);
+    process.on('SIGINT',  terminate);
+    process.on('SIGABRT', terminate);
+}
