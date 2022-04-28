@@ -22,7 +22,6 @@ import { SinonSandbox, SinonSpy } from 'sinon';
 import {
     ACQUIRE_INTERVAL,
     PgIpLock,
-    SCHEMA_NAME,
     SHUTDOWN_TIMEOUT,
 } from '../../src';
 import { PgClient } from '../../src/types';
@@ -67,34 +66,6 @@ describe('IPCLock', () => {
             spyListen = sinon.spy(lock as any, 'listen');
         });
 
-        it('should create db schema on first call', async () => {
-            const stub = sinon.stub(lock as any, 'schemaExists').returns(false);
-
-            await lock.init();
-
-            spy.forEach(spyCall => {
-                expect(spyCall.calledOnce).to.be.true;
-                spyCall.restore();
-            });
-
-            expect(spyListen.calledOnce).to.be.true;
-
-            stub.restore();
-        });
-        it('should not create db schema if it exists', async () => {
-            const stub = sinon.stub(lock as any, 'schemaExists').returns(true);
-
-            await lock.init();
-
-            spy.forEach(spyCall => {
-                expect(spyCall.called).to.be.false;
-                spyCall.restore();
-            });
-
-            expect(spyListen.calledOnce).to.be.true;
-
-            stub.restore();
-        });
         it('should re-apply notify handler on re-use', async () => {
             await lock.init();
             lock.onRelease(() => { /**/ });
@@ -123,20 +94,6 @@ describe('IPCLock', () => {
             // await compLock.destroy();
             await lock.destroy();
             stubAcquire.restore();
-        });
-    });
-    describe('schemaExists()', () => {
-        it('should return true if schema exists in db', async () => {
-            const stub = sinon.stub(client, 'query')
-                .returns({ rows: [{ schema: SCHEMA_NAME }] } as any);
-            expect(await (lock as any).schemaExists()).to.be.true;
-            stub.restore();
-        });
-        it('should return false if schema does not exist in db', async () => {
-            const stub = sinon.stub(client, 'query')
-                .returns({ rows: [] } as any);
-            expect(await (lock as any).schemaExists()).to.be.false;
-            stub.restore();
         });
     });
     describe('isAcquired()', () => {
