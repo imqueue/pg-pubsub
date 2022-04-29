@@ -112,6 +112,7 @@ export class PgIpLock implements AnyLock {
         await this.createSchema();
         await Promise.all([this.createLock(), this.createDeadlockCheck()]);
 
+        // istanbul ignore if
         if (DESTROY_LOCK_ON_START) {
             await destroyLock();
         }
@@ -373,6 +374,7 @@ async function destroyLock(): Promise<number> {
     }
 }
 
+// istanbul ignore else
 if (!DESTROY_LOCK_ON_START) {
     process.on('SIGTERM', terminate);
     process.on('SIGINT',  terminate);
