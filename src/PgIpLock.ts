@@ -47,7 +47,7 @@ import Timeout = NodeJS.Timeout;
  * lock acquire requests to a database, so selecting the proper number should be
  * a thoughtful trade-off between overall system load and reliability level.
  *
- * Usually you do not need instantiate this class directly - it will be done
+ * Usually you do not need to instantiate this class directly - it will be done
  * by a PgPubSub instances on their needs. Therefore, you may re-use this piece
  * of code in some other implementations, so it is exported as is.
  */
