@@ -112,11 +112,6 @@ export class PgIpLock implements AnyLock {
         await this.createSchema();
         await Promise.all([this.createLock(), this.createDeadlockCheck()]);
 
-        // istanbul ignore if
-        if (DESTROY_LOCK_ON_START) {
-            await destroyLock();
-        }
-
         if (this.notifyHandler) {
             this.options.pgClient.on('notification', this.notifyHandler);
         }
@@ -131,6 +126,11 @@ export class PgIpLock implements AnyLock {
             async () => !this.acquired && this.acquire(),
             this.options.acquireInterval,
         ));
+
+        // istanbul ignore if
+        if (DESTROY_LOCK_ON_START) {
+            await destroyLock();
+        }
     }
 
     /**
