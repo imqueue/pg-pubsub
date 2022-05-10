@@ -16,6 +16,7 @@
 import { Client, ClientConfig } from 'pg';
 import {
     ACQUIRE_INTERVAL,
+    EXECUTION_LOCK,
     IS_ONE_PROCESS,
     RETRY_DELAY,
     RETRY_LIMIT,
@@ -87,6 +88,14 @@ export interface PgPubSubOptions extends ClientConfig {
      * @type {boolean}
      */
     filtered: boolean;
+
+    /**
+     * If set to true, all instances become listeners but only instance is an
+     * executor which still implements inter-process locking mechanism.
+     *
+     * @type {boolean}
+     */
+    executionLock: boolean;
 }
 
 /**
@@ -101,4 +110,5 @@ export const DefaultOptions: PgPubSubOptions = Object.freeze({
     singleListener: IS_ONE_PROCESS,
     acquireInterval: ACQUIRE_INTERVAL,
     filtered: false,
+    executionLock: EXECUTION_LOCK,
 });
