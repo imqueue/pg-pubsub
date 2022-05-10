@@ -311,88 +311,105 @@ export class PgIpLock implements AnyLock {
      */
     private async createLock(): Promise<void> {
         if (this.uniqueKey) {
-            await this.options.pgClient.query(`
-                DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT *
-                            FROM information_schema.columns
-                            WHERE table_schema = '${ PgIpLock.schemaName }'
-                              AND table_name = 'lock'
-                              AND column_name = 'id'
-                        ) THEN
-                            DROP TABLE IF EXISTS ${ PgIpLock.schemaName }.lock;
-                        END IF;
-                    END
-                $$
-            `);
-            await this.options.pgClient.query(`
-                CREATE TABLE IF NOT EXISTS ${ PgIpLock.schemaName }."lock" (
-                    "id" CHARACTER VARYING NOT NULL PRIMARY KEY,
-                    "channel" CHARACTER VARYING NOT NULL,
-                    "app" CHARACTER VARYING NOT NULL
-                )
-            `);
-        } else {
-            await this.options.pgClient.query(`
-                DO $$
-                    BEGIN
-                        IF EXISTS (
-                            SELECT *
-                            FROM information_schema.columns
-                            WHERE table_schema = '${ PgIpLock.schemaName }'
-                              AND table_name = 'lock'
-                              AND column_name = 'id'
-                        ) THEN
-                            DROP TABLE IF EXISTS ${ PgIpLock.schemaName }.lock;
-                        END IF;
-                    END
-                $$
-            `);
-            await this.options.pgClient.query(`
-                CREATE TABLE IF NOT EXISTS ${ PgIpLock.schemaName }."lock" (
-                    "channel" CHARACTER VARYING NOT NULL PRIMARY KEY,
-                    "app" CHARACTER VARYING NOT NULL
-                )
-            `);
+            await this.createUniqueLock();
+
+            return ;
         }
 
-        if (this.uniqueKey) {
+        await this.createChannelLock();
+    }
+
+    /**
+     * Creates unique locks by IDs in the database
+     *
+     * @return {Promise<void>}
+     */
+    private async createUniqueLock(): Promise<void> {
+        await this.options.pgClient.query(`
+            DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT *
+                        FROM information_schema.columns
+                        WHERE table_schema = '${ PgIpLock.schemaName }'
+                          AND table_name = 'lock'
+                          AND column_name = 'id'
+                    ) THEN
+                        DROP TABLE IF EXISTS ${ PgIpLock.schemaName }.lock;
+                    END IF;
+                END
+            $$
+        `);
+        await this.options.pgClient.query(`
+            CREATE TABLE IF NOT EXISTS ${ PgIpLock.schemaName }."lock" (
+                "id" CHARACTER VARYING NOT NULL PRIMARY KEY,
+                "channel" CHARACTER VARYING NOT NULL,
+                "app" CHARACTER VARYING NOT NULL
+            )
+        `);
+        await this.options.pgClient.query(`
+            DROP TRIGGER IF EXISTS notify_release_lock_trigger
+                ON ${PgIpLock.schemaName}.lock
+        `);
+    }
+
+    /**
+     * Creates locks by channel names in the database
+     *
+     * @return {Promise<void>}
+     */
+    private async createChannelLock(): Promise<void> {
+        await this.options.pgClient.query(`
+            DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT *
+                        FROM information_schema.columns
+                        WHERE table_schema = '${ PgIpLock.schemaName }'
+                          AND table_name = 'lock'
+                          AND column_name = 'id'
+                    ) THEN
+                        DROP TABLE IF EXISTS ${ PgIpLock.schemaName }.lock;
+                    END IF;
+                END
+            $$
+        `);
+        await this.options.pgClient.query(`
+            CREATE TABLE IF NOT EXISTS ${ PgIpLock.schemaName }."lock" (
+                "channel" CHARACTER VARYING NOT NULL PRIMARY KEY,
+                "app" CHARACTER VARYING NOT NULL
+            )
+        `);
+        // noinspection SqlResolve
+        await this.options.pgClient.query(`
+            CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.notify_lock()
+            RETURNS TRIGGER LANGUAGE PLPGSQL AS $$
+            BEGIN PERFORM PG_NOTIFY(OLD.channel, '1'); RETURN OLD; END; $$
+        `);
+        await this.options.pgClient.query(`
+            BEGIN
+        `);
+
+        try {
             await this.options.pgClient.query(`
                 DROP TRIGGER IF EXISTS notify_release_lock_trigger
-                    ON ${PgIpLock.schemaName}.lock
+                    ON ${ PgIpLock.schemaName }.lock
             `);
-        } else {
             // noinspection SqlResolve
             await this.options.pgClient.query(`
-                CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.notify_lock()
-                RETURNS TRIGGER LANGUAGE PLPGSQL AS $$
-                BEGIN PERFORM PG_NOTIFY(OLD.channel, '1'); RETURN OLD; END; $$
+                CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
+                AFTER DELETE ON ${PgIpLock.schemaName}.lock
+                DEFERRABLE INITIALLY DEFERRED
+                FOR EACH ROW EXECUTE PROCEDURE ${
+            PgIpLock.schemaName}.notify_lock()
             `);
             await this.options.pgClient.query(`
-                BEGIN
+                COMMIT
             `);
-            try {
-                await this.options.pgClient.query(`
-                    DROP TRIGGER IF EXISTS notify_release_lock_trigger
-                        ON ${ PgIpLock.schemaName }.lock
-                `);
-                // noinspection SqlResolve
-                await this.options.pgClient.query(`
-                    CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
-                    AFTER DELETE ON ${PgIpLock.schemaName}.lock
-                    DEFERRABLE INITIALLY DEFERRED
-                    FOR EACH ROW EXECUTE PROCEDURE ${
-                    PgIpLock.schemaName}.notify_lock()
-                `);
-                await this.options.pgClient.query(`
-                    COMMIT
-                `);
-            } catch (err) {
-                await this.options.pgClient.query(`
-                    ROLLBACK
-                `);
-            }
+        } catch (err) {
+            await this.options.pgClient.query(`
+                ROLLBACK
+            `);
         }
     }
 
