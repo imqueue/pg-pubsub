@@ -246,6 +246,16 @@ const pubSub = new PgPubSub({ pgClient: existingClient });
 > connection approach. And this library as well. It is just more simple and 
 > reliable.
 
+Also, PgPubSub supports execution lock. This means all services become listeners
+in single listener mode but only one listener can process a notification. To
+enable this feature, you can bypass `executionLock` as option and set it to
+`true`. By default, this lock type is turned off.
+
+> **NOTE:** Sometimes you might receive the notification with the same payloads
+> in a very short period of time but execution lock will process them as the
+> only notify message. If this important to you and your system will lave data
+> leaks you need to ensure that payloads are unique.
+
 ## [Full API Docs](https://github.com/imqueue/pg-pubsub/wiki)
 
 You may read API docs on [wiki pages](https://github.com/imqueue/pg-pubsub/wiki)
