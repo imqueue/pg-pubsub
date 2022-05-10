@@ -14,6 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 import { AnyJson, AnyLogger } from './types';
+import { murmurHash64 } from 'murmurhash-native';
 
 /**
  * Performs JSON.stringify on a given input taking into account
@@ -81,4 +82,21 @@ export function unpack(input?: string, logger?: AnyLogger): AnyJson {
 
         return {};
     }
+}
+
+/**
+ * Constructs and returns hash string for a given set of processId, channel
+ * and payload.
+ *
+ * @param {string} processId
+ * @param {string} channel
+ * @param {any} payload
+ * @returns {string}
+ */
+export function signature(
+    processId: number,
+    channel: string,
+    payload: any,
+): string {
+    return murmurHash64(JSON.stringify([processId, channel, payload]));
 }
