@@ -694,10 +694,7 @@ export class PgPubSub extends EventEmitter {
             }, uniqueKey);
 
             await lock.init();
-
-            if (!uniqueKey) {
-                lock.onRelease(chan => this.listen(chan));
-            }
+            !uniqueKey && lock.onRelease(chan => this.listen(chan));
 
             return lock;
         }
