@@ -17,7 +17,6 @@ import { Notification } from 'pg';
 import { ident, literal } from 'pg-format';
 import { clearInterval } from 'timers';
 import {
-    DESTROY_LOCK_ON_START,
     SCHEMA_NAME,
     SHUTDOWN_TIMEOUT,
 } from './constants';
@@ -90,10 +89,12 @@ export class PgIpLock implements AnyLock {
      * @constructor
      * @param {string} channel - source channel name to manage locking on
      * @param {PgIpLockOptions} options - lock instantiate options
+     * @param {string} [uniqueKey] - unique key for specific message
      */
     public constructor(
         public readonly channel: string,
         public readonly options: PgIpLockOptions,
+        public readonly uniqueKey?: string,
     ) {
         this.channel = `__${PgIpLock.name}__:${
             channel.replace(RX_LOCK_CHANNEL, '')
@@ -112,7 +113,7 @@ export class PgIpLock implements AnyLock {
         await this.createSchema();
         await Promise.all([this.createLock(), this.createDeadlockCheck()]);
 
-        if (this.notifyHandler) {
+        if (this.notifyHandler && !this.uniqueKey) {
             this.options.pgClient.on('notification', this.notifyHandler);
         }
 
@@ -120,16 +121,13 @@ export class PgIpLock implements AnyLock {
             PgIpLock.instances.push(this);
         }
 
-        await this.listen();
+        if (!this.uniqueKey) {
+            await this.listen();
 
-        !this.acquireTimer && (this.acquireTimer = setInterval(
-            async () => !this.acquired && this.acquire(),
-            this.options.acquireInterval,
-        ));
-
-        // istanbul ignore if
-        if (DESTROY_LOCK_ON_START) {
-            await destroyLock();
+            !this.acquireTimer && (this.acquireTimer = setInterval(
+                () => !this.acquired && this.acquire(),
+                this.options.acquireInterval,
+            ));
         }
     }
 
@@ -167,19 +165,10 @@ export class PgIpLock implements AnyLock {
      */
     public async acquire(): Promise<boolean> {
         try {
-            // it will not throw on successful insert
-            // noinspection SqlResolve
-            await this.options.pgClient.query(`
-                INSERT INTO ${PgIpLock.schemaName}.lock (channel, app)
-                VALUES (
-                    ${literal(this.channel)},
-                    ${literal(this.options.pgClient.appName)}
-                ) ON CONFLICT (channel) DO
-                UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
-                    ${PgIpLock.schemaName}.lock.app,
-                    ${literal(this.options.pgClient.appName)}
-                )
-            `);
+            this.uniqueKey
+                ? await this.acquireUniqueLock()
+                : await this.acquireChannelLock()
+            ;
             this.acquired = true;
         } catch (err) {
             // will throw, because insert duplicates existing lock
@@ -195,21 +184,70 @@ export class PgIpLock implements AnyLock {
     }
 
     /**
+     * Acquires a lock with ID
+     *
+     * @return {Promise<void>}
+     */
+    private async acquireUniqueLock(): Promise<void> {
+        // noinspection SqlResolve
+        await this.options.pgClient.query(`
+            INSERT INTO ${PgIpLock.schemaName}.lock (id, channel, app)
+            VALUES (
+                ${literal(this.uniqueKey)},
+                ${literal(this.channel)},
+                ${literal(this.options.pgClient.appName)}
+            ) ON CONFLICT (id) DO
+            UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
+                ${PgIpLock.schemaName}.lock.app,
+                ${literal(this.options.pgClient.appName)}
+            )
+        `);
+    }
+
+    /**
+     * Acquires a lock by unique channel
+     *
+     * @return {Promise<void>}
+     */
+    private async acquireChannelLock(): Promise<void> {
+        // noinspection SqlResolve
+        await this.options.pgClient.query(`
+             INSERT INTO ${PgIpLock.schemaName}.lock (channel, app)
+             VALUES (
+                 ${literal(this.channel)},
+                 ${literal(this.options.pgClient.appName)}
+             ) ON CONFLICT (channel) DO
+             UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
+                 ${PgIpLock.schemaName}.lock.app,
+                 ${literal(this.options.pgClient.appName)}
+             )
+         `);
+    }
+
+    /**
      * Releases acquired lock on this channel. After lock is released, another
      * running process or host would be able to acquire the lock.
      *
      * @return {Promise<void>}
      */
     public async release(): Promise<void> {
-        if (!this.acquired) {
-            return ; // nothing to release, this lock has not been acquired
-        }
+        if (this.uniqueKey) {
+            // noinspection SqlResolve
+            await this.options.pgClient.query(`
+                DELETE FROM ${PgIpLock.schemaName}.lock
+                WHERE id=${literal(this.uniqueKey)}
+            `);
+        } else {
+            if (!this.acquired) {
+                return ; // nothing to release, this lock has not been acquired
+            }
 
-        // noinspection SqlResolve
-        await this.options.pgClient.query(`
-            DELETE FROM ${PgIpLock.schemaName}.lock
-            WHERE channel=${literal(this.channel)}
-        `);
+            // noinspection SqlResolve
+            await this.options.pgClient.query(`
+                DELETE FROM ${PgIpLock.schemaName}.lock
+                WHERE channel=${literal(this.channel)}
+            `);
+        }
 
         this.acquired = false;
     }
@@ -287,10 +325,76 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async createLock(): Promise<void> {
+        // istanbul ignore if
+        if (this.uniqueKey) {
+            await this.createUniqueLock();
+
+            return ;
+        }
+
+        await this.createChannelLock();
+    }
+
+    /**
+     * Creates unique locks by IDs in the database
+     *
+     * @return {Promise<void>}
+     */
+    private async createUniqueLock(): Promise<void> {
         await this.options.pgClient.query(`
-            CREATE TABLE IF NOT EXISTS ${PgIpLock.schemaName}.lock (
-                channel CHARACTER VARYING NOT NULL PRIMARY KEY,
-                app CHARACTER VARYING NOT NULL)
+            DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT *
+                        FROM information_schema.columns
+                        WHERE table_schema = '${ PgIpLock.schemaName }'
+                          AND table_name = 'lock'
+                          AND column_name = 'id'
+                    ) THEN
+                        DROP TABLE IF EXISTS ${ PgIpLock.schemaName }.lock;
+                    END IF;
+                END
+            $$
+        `);
+        await this.options.pgClient.query(`
+            CREATE TABLE IF NOT EXISTS ${ PgIpLock.schemaName }."lock" (
+                "id" CHARACTER VARYING NOT NULL PRIMARY KEY,
+                "channel" CHARACTER VARYING NOT NULL,
+                "app" CHARACTER VARYING NOT NULL
+            )
+        `);
+        await this.options.pgClient.query(`
+            DROP TRIGGER IF EXISTS notify_release_lock_trigger
+                ON ${PgIpLock.schemaName}.lock
+        `);
+    }
+
+    /**
+     * Creates locks by channel names in the database
+     *
+     * @return {Promise<void>}
+     */
+    private async createChannelLock(): Promise<void> {
+        await this.options.pgClient.query(`
+            DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT *
+                        FROM information_schema.columns
+                        WHERE table_schema = '${ PgIpLock.schemaName }'
+                          AND table_name = 'lock'
+                          AND column_name = 'id'
+                    ) THEN
+                        DROP TABLE IF EXISTS ${ PgIpLock.schemaName }.lock;
+                    END IF;
+                END
+            $$
+        `);
+        await this.options.pgClient.query(`
+            CREATE TABLE IF NOT EXISTS ${ PgIpLock.schemaName }."lock" (
+                "channel" CHARACTER VARYING NOT NULL PRIMARY KEY,
+                "app" CHARACTER VARYING NOT NULL
+            )
         `);
         // noinspection SqlResolve
         await this.options.pgClient.query(`
@@ -298,15 +402,32 @@ export class PgIpLock implements AnyLock {
             RETURNS TRIGGER LANGUAGE PLPGSQL AS $$
             BEGIN PERFORM PG_NOTIFY(OLD.channel, '1'); RETURN OLD; END; $$
         `);
-        // noinspection SqlResolve
         await this.options.pgClient.query(`
-            DROP TRIGGER IF EXISTS notify_release_lock_trigger
-                ON ${ PgIpLock.schemaName }.lock;
-            CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
-            AFTER DELETE ON ${PgIpLock.schemaName}.lock
-            DEFERRABLE INITIALLY DEFERRED
-            FOR EACH ROW EXECUTE PROCEDURE ${PgIpLock.schemaName}.notify_lock()
+            BEGIN
         `);
+
+        try {
+            await this.options.pgClient.query(`
+                DROP TRIGGER IF EXISTS notify_release_lock_trigger
+                    ON ${ PgIpLock.schemaName }.lock
+            `);
+            // noinspection SqlResolve
+            await this.options.pgClient.query(`
+                CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
+                AFTER DELETE ON ${PgIpLock.schemaName}.lock
+                DEFERRABLE INITIALLY DEFERRED
+                FOR EACH ROW EXECUTE PROCEDURE ${
+            PgIpLock.schemaName}.notify_lock()
+            `);
+            await this.options.pgClient.query(`
+                COMMIT
+            `);
+        } catch (err) {
+            // istanbul ignore next
+            await this.options.pgClient.query(`
+                ROLLBACK
+            `);
+        }
     }
 
     /**
@@ -316,22 +437,35 @@ export class PgIpLock implements AnyLock {
      */
     private async createDeadlockCheck(): Promise<void> {
         await this.options.pgClient.query(`
-            CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
-                old_app TEXT,
-                new_app TEXT)
-            RETURNS TEXT LANGUAGE PLPGSQL AS $$
-            DECLARE num_apps INTEGER;
             BEGIN
-                SELECT count(query) INTO num_apps
-                FROM pg_stat_activity
-                WHERE application_name = old_app;
-                IF num_apps > 0 THEN
-                    RAISE EXCEPTION 'Duplicate channel for app %', new_app
-                    USING DETAIL = 'LOCKED';
-                END IF;
-                RETURN new_app;
-            END; $$;
         `);
+        try {
+            await this.options.pgClient.query(`
+                CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
+                    old_app TEXT,
+                    new_app TEXT)
+                RETURNS TEXT LANGUAGE PLPGSQL AS $$
+                DECLARE num_apps INTEGER;
+                BEGIN
+                    SELECT count(query) INTO num_apps
+                    FROM pg_stat_activity
+                    WHERE application_name = old_app;
+                    IF num_apps > 0 THEN
+                        RAISE EXCEPTION 'Duplicate channel for app %', new_app
+                        USING DETAIL = 'LOCKED';
+                    END IF;
+                    RETURN new_app;
+                END; $$;
+            `);
+            await this.options.pgClient.query(`
+                COMMIT
+            `);
+        } catch (err) {
+            // istanbul ignore next
+            await this.options.pgClient.query(`
+                ROLLBACK
+            `);
+        }
     }
 }
 
@@ -374,9 +508,6 @@ async function destroyLock(): Promise<number> {
     }
 }
 
-// istanbul ignore else
-if (!DESTROY_LOCK_ON_START) {
-    process.on('SIGTERM', terminate);
-    process.on('SIGINT',  terminate);
-    process.on('SIGABRT', terminate);
-}
+process.on('SIGTERM', terminate);
+process.on('SIGINT',  terminate);
+process.on('SIGABRT', terminate);

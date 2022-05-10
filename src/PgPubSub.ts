@@ -35,7 +35,7 @@ import {
     PgIpLock,
     PgPubSubOptions,
     reconnect,
-    RX_LOCK_CHANNEL,
+    RX_LOCK_CHANNEL, signature,
     unlisten,
     unpack,
 } from '.';
@@ -316,7 +316,10 @@ export class PgPubSub extends EventEmitter {
         this.pgClient.on('end', () => this.emit('end'));
         this.pgClient.on('error', () => this.emit('error'));
 
-        this.onNotification = this.onNotification.bind(this);
+        this.onNotification = this.options.executionLock
+            ? this.onNotificationLockExec.bind(this)
+            : this.onNotification.bind(this)
+        ;
         this.reconnect = this.reconnect.bind(this);
         this.onReconnect = this.onReconnect.bind(this);
 
@@ -379,10 +382,17 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async listen(channel: string): Promise<void> {
-        const lock = await this.lock(channel);
+        // istanbul ignore if
+        if (this.options.executionLock) {
+            await this.pgClient.query(`LISTEN ${ident(channel)}`);
+            this.emit('listen', channel);
+            return ;
+        }
 
+        const lock = await this.lock(channel);
+        const acquired = await lock.acquire();
         // istanbul ignore else
-        if (await lock.acquire()) {
+        if (acquired) {
             await this.pgClient.query(`LISTEN ${ident(channel)}`);
             this.emit('listen', channel);
         }
@@ -571,6 +581,48 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
+     * Database notification event handler for execution lock
+     *
+     * @access private
+     * @param {Notification} notification - database message data
+     * @return {Promise<void>}
+     */
+    private async onNotificationLockExec(
+        notification: Notification,
+    ): Promise<void> {
+        const skip = RX_LOCK_CHANNEL.test(notification.channel) || (
+            this.options.filtered && this.processId === notification.processId
+        );
+
+        if (skip) {
+            // as we use the same connection with locks mechanism
+            // we should avoid pub/sub client to parse lock channels data
+            // and also filter same-notify-channel messages if filtered option
+            // is set to true
+            return ;
+        }
+
+        const lock = await this.createLock(notification.channel, signature(
+            notification.processId,
+            notification.channel,
+            notification.payload,
+        ));
+
+        await lock.acquire();
+
+        // istanbul ignore if
+        if (this.options.singleListener && !lock.isAcquired()) {
+            return; // we are not really a listener
+        }
+
+        const payload = unpack(notification.payload);
+
+        this.emit('message', notification.channel, payload);
+        this.channels.emit(notification.channel, payload);
+        await lock.release();
+    }
+
+    /**
      * On reconnect event emitter
      *
      * @access private
@@ -630,18 +682,22 @@ export class PgPubSub extends EventEmitter {
      * Instantiates new lock, properly initializes it and returns
      *
      * @param {string} channel
+     * @param {string} [uniqueKey]
      * @return {Promise<AnyLock>}
      */
-    private async createLock(channel: string): Promise<AnyLock> {
+    private async createLock(
+        channel: string,
+        uniqueKey?: string,
+    ): Promise<AnyLock> {
         if (this.options.singleListener) {
             const lock = new PgIpLock(channel, {
                 pgClient: this.pgClient,
                 logger: this.logger,
                 acquireInterval: this.options.acquireInterval,
-            });
+            }, uniqueKey);
 
             await lock.init();
-            lock.onRelease(chan => this.listen(chan));
+            !uniqueKey && lock.onRelease(chan => this.listen(chan));
 
             return lock;
         }

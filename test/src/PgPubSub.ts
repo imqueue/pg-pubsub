@@ -24,6 +24,15 @@ describe('PgPubSub', () => {
     let pgClient: Client;
     let pubSub: PgPubSub;
 
+    const listenFunc = (pubSubCopy: PgPubSub) => {
+        pubSubCopy.listen('TestChannel').then(() => {
+            pgClient.emit('notification', {
+                channel: 'TestChannel',
+                payload: 'true',
+            });
+        });
+    }
+
     beforeEach(() => {
         pgClient = new Client();
         pubSub = new PgPubSub({ pgClient });
@@ -192,12 +201,7 @@ describe('PgPubSub', () => {
         it('should handle messages from db with acquired lock', done => {
             pubSub.options.singleListener = true;
 
-            pubSub.listen('TestChannel').then(() => {
-                pgClient.emit('notification', {
-                    channel: 'TestChannel',
-                    payload: 'true',
-                });
-            });
+            listenFunc(pubSub);
 
             pubSub.on('message', (chanel, message) => {
                 expect(chanel).equals('TestChannel');
@@ -230,7 +234,7 @@ describe('PgPubSub', () => {
             const channel = `__${PgIpLock.name}__:TestChannel`;
 
             await pubSub.listen('TestChannel');
-            await pgClient.emit('notification', {
+            pgClient.emit('notification', {
                 channel,
                 payload: 'true',
             });
@@ -239,6 +243,34 @@ describe('PgPubSub', () => {
                 ['message', channel, true] as any,
             )).to.be.false;
             expect(spyChannel.called).to.be.false;
+        });
+        it('should handle messages from db with acquired execution '
+            + 'lock', done => {
+            pubSub = new PgPubSub({
+                pgClient, executionLock: true, singleListener: true,
+            });
+
+            listenFunc(pubSub);
+
+            pubSub.on('message', (chanel, message) => {
+                expect(chanel).equals('TestChannel');
+                expect(message).equals(true);
+                done();
+            });
+        });
+        it('should handle messages from db with acquired execution '
+            + 'lock and multiple listeners', done => {
+            pubSub = new PgPubSub({
+                pgClient, executionLock: true, singleListener: false,
+            });
+
+            listenFunc(pubSub);
+
+            pubSub.on('message', (chanel, message) => {
+                expect(chanel).equals('TestChannel');
+                expect(message).equals(true);
+                done();
+            });
         });
     });
     describe('unlisten()', () => {
@@ -465,6 +497,42 @@ describe('PgPubSub', () => {
             await new Promise(res => setTimeout(res));
 
             expect(counter).equals(1);
+        });
+        it('should filter messages if set and "filtered" option is set and'
+            + ' execution lock is set', async () => {
+            const pubSubCopy = new PgPubSub({
+                singleListener: false,
+                filtered: false,
+                executionLock: true,
+                pgClient,
+            });
+            (pubSubCopy as any).processId = 7777;
+
+            await pubSubCopy.listen('Test');
+            let counter = 0;
+
+            pubSubCopy.channels.on('Test', () => ++counter);
+            pgClient.emit('notification', {
+                processId: 7777,
+                channel: 'Test',
+                payload: 'true',
+            });
+
+            await new Promise(res => setTimeout(res));
+
+            expect(counter).equals(1);
+
+            pubSubCopy.options.filtered = true;
+            pgClient.emit('notification', {
+                processId: 7777,
+                channel: 'Test',
+                payload: 'true',
+            });
+
+            await new Promise(res => setTimeout(res));
+
+            expect(counter).equals(1);
+            await pubSub.destroy();
         });
     });
     describe('destroy()', () => {
