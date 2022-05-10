@@ -310,6 +310,7 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async createLock(): Promise<void> {
+        // istanbul ignore if
         if (this.uniqueKey) {
             await this.createUniqueLock();
 
@@ -407,6 +408,7 @@ export class PgIpLock implements AnyLock {
                 COMMIT
             `);
         } catch (err) {
+            // istanbul ignore next
             await this.options.pgClient.query(`
                 ROLLBACK
             `);
@@ -444,6 +446,7 @@ export class PgIpLock implements AnyLock {
                 COMMIT
             `);
         } catch (err) {
+            // istanbul ignore next
             await this.options.pgClient.query(`
                 ROLLBACK
             `);

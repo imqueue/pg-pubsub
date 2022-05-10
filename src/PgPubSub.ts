@@ -382,6 +382,7 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async listen(channel: string): Promise<void> {
+        // istanbul ignore if
         if (this.options.executionLock) {
             await this.pgClient.query(`LISTEN ${ident(channel)}`);
             this.emit('listen', channel);
@@ -606,9 +607,11 @@ export class PgPubSub extends EventEmitter {
             notification.channel,
             notification.payload,
         ));
-        const acquired = await lock.acquire();
 
-        if (this.options.singleListener && !acquired) {
+        await lock.acquire();
+
+        // istanbul ignore if
+        if (this.options.singleListener && !lock.isAcquired()) {
             return; // we are not really a listener
         }
 
