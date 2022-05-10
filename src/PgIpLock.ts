@@ -165,36 +165,10 @@ export class PgIpLock implements AnyLock {
      */
     public async acquire(): Promise<boolean> {
         try {
-            // it will not throw on successful insert
-            if (this.uniqueKey) {
-                // noinspection SqlResolve
-                await this.options.pgClient.query(`
-                    INSERT INTO ${PgIpLock.schemaName}.lock (id, channel, app)
-                    VALUES (
-                        ${literal(this.uniqueKey)},
-                        ${literal(this.channel)},
-                        ${literal(this.options.pgClient.appName)}
-                    ) ON CONFLICT (id) DO
-                    UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
-                        ${PgIpLock.schemaName}.lock.app,
-                        ${literal(this.options.pgClient.appName)}
-                    )
-                `);
-            } else {
-                // noinspection SqlResolve
-                await this.options.pgClient.query(`
-                    INSERT INTO ${PgIpLock.schemaName}.lock (channel, app)
-                    VALUES (
-                        ${literal(this.channel)},
-                        ${literal(this.options.pgClient.appName)}
-                    ) ON CONFLICT (channel) DO
-                    UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
-                        ${PgIpLock.schemaName}.lock.app,
-                        ${literal(this.options.pgClient.appName)}
-                    )
-                `);
-            }
-
+            this.uniqueKey
+                ? await this.acquireUniqueLock()
+                : await this.acquireChannelLock()
+            ;
             this.acquired = true;
         } catch (err) {
             // will throw, because insert duplicates existing lock
@@ -207,6 +181,47 @@ export class PgIpLock implements AnyLock {
         }
 
         return this.acquired;
+    }
+
+    /**
+     * Acquires a lock with ID
+     *
+     * @return {Promise<void>}
+     */
+    private async acquireUniqueLock(): Promise<void> {
+        // noinspection SqlResolve
+        await this.options.pgClient.query(`
+            INSERT INTO ${PgIpLock.schemaName}.lock (id, channel, app)
+            VALUES (
+                ${literal(this.uniqueKey)},
+                ${literal(this.channel)},
+                ${literal(this.options.pgClient.appName)}
+            ) ON CONFLICT (id) DO
+            UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
+                ${PgIpLock.schemaName}.lock.app,
+                ${literal(this.options.pgClient.appName)}
+            )
+        `);
+    }
+
+    /**
+     * Acquires a lock by unique channel
+     *
+     * @return {Promise<void>}
+     */
+    private async acquireChannelLock(): Promise<void> {
+        // noinspection SqlResolve
+        await this.options.pgClient.query(`
+             INSERT INTO ${PgIpLock.schemaName}.lock (channel, app)
+             VALUES (
+                 ${literal(this.channel)},
+                 ${literal(this.options.pgClient.appName)}
+             ) ON CONFLICT (channel) DO
+             UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
+                 ${PgIpLock.schemaName}.lock.app,
+                 ${literal(this.options.pgClient.appName)}
+             )
+         `);
     }
 
     /**
