@@ -200,7 +200,8 @@ export class PgIpLock implements AnyLock {
             ) ON CONFLICT (id) DO
             UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
                 ${PgIpLock.schemaName}.lock.app,
-                ${literal(this.options.pgClient.appName)}
+                ${literal(this.options.pgClient.appName)},
+                NOW()
             )
         `);
     }
@@ -213,15 +214,16 @@ export class PgIpLock implements AnyLock {
     private async acquireChannelLock(): Promise<void> {
         // noinspection SqlResolve
         await this.options.pgClient.query(`
-             INSERT INTO ${PgIpLock.schemaName}.lock (channel, app)
-             VALUES (
-                 ${literal(this.channel)},
-                 ${literal(this.options.pgClient.appName)}
-             ) ON CONFLICT (channel) DO
-             UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
-                 ${PgIpLock.schemaName}.lock.app,
-                 ${literal(this.options.pgClient.appName)}
-             )
+            INSERT INTO ${PgIpLock.schemaName}.lock (channel, app)
+            VALUES (
+                ${literal(this.channel)},
+                ${literal(this.options.pgClient.appName)}
+            ) ON CONFLICT (channel) DO
+                UPDATE SET app = ${PgIpLock.schemaName}.deadlock_check(
+                ${PgIpLock.schemaName}.lock.app,
+                ${literal(this.options.pgClient.appName)},
+                NOW()
+            )
         `);
     }
 
@@ -432,7 +434,9 @@ export class PgIpLock implements AnyLock {
         await this.options.pgClient.query(`
             CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
                 old_app TEXT,
-                new_app TEXT)
+                new_app TEXT,
+                time TIMESTAMP WITH TIME ZONE
+            )
             RETURNS TEXT LANGUAGE PLPGSQL AS $$
             DECLARE num_apps INTEGER;
             BEGIN
