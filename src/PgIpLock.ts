@@ -404,25 +404,21 @@ export class PgIpLock implements AnyLock {
         `);
 
         await this.options.pgClient.query(`
-            DO $$
-            BEGIN
-                BEGIN
-                    DROP TRIGGER IF EXISTS notify_release_lock_trigger 
-                        ON ${PgIpLock.schemaName}.lock;
-            
-                    CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
-                        AFTER DELETE ON ${PgIpLock.schemaName}.lock
-                        DEFERRABLE INITIALLY DEFERRED
-                        FOR EACH ROW EXECUTE PROCEDURE ${
-                        PgIpLock.schemaName}.notify_lock();
-            
-                    COMMIT;
-                EXCEPTION
-                    WHEN OTHERS THEN
-                        ROLLBACK;
-                END;
-            END $$
+            DROP TRIGGER IF EXISTS notify_release_lock_trigger 
+                ON ${PgIpLock.schemaName}.lock
         `);
+
+        try {
+            await this.options.pgClient.query(`
+                CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
+                    AFTER DELETE ON ${PgIpLock.schemaName}.lock
+                    DEFERRABLE INITIALLY DEFERRED
+                    FOR EACH ROW EXECUTE PROCEDURE ${
+                    PgIpLock.schemaName}.notify_lock()
+            `);
+        } catch (e) {
+            /*ignore*/
+        }
     }
 
     /**
