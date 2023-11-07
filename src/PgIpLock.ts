@@ -221,7 +221,7 @@ export class PgIpLock implements AnyLock {
                  ${PgIpLock.schemaName}.lock.app,
                  ${literal(this.options.pgClient.appName)}
              )
-         `);
+        `);
     }
 
     /**
@@ -348,8 +348,8 @@ export class PgIpLock implements AnyLock {
                         SELECT *
                         FROM information_schema.columns
                         WHERE table_schema = '${ PgIpLock.schemaName }'
-                          AND table_name = 'lock'
-                          AND column_name = 'id'
+                            AND table_name = 'lock'
+                            AND column_name = 'id'
                     ) THEN
                         DROP TABLE IF EXISTS ${ PgIpLock.schemaName }.lock;
                     END IF;
@@ -382,8 +382,8 @@ export class PgIpLock implements AnyLock {
                         SELECT *
                         FROM information_schema.columns
                         WHERE table_schema = '${ PgIpLock.schemaName }'
-                          AND table_name = 'lock'
-                          AND column_name = 'id'
+                            AND table_name = 'lock'
+                            AND column_name = 'id'
                     ) THEN
                         DROP TABLE IF EXISTS ${ PgIpLock.schemaName }.lock;
                     END IF;
