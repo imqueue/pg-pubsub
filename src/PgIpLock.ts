@@ -113,8 +113,12 @@ export class PgIpLock implements AnyLock {
      */
     public async init(): Promise<void> {
         if (!await this.schemaExists()) {
-            await this.createSchema();
-            await Promise.all([this.createLock(), this.createDeadlockCheck()]);
+            try {
+                await this.createSchema();
+                await Promise.all([this.createLock(), this.createDeadlockCheck()]);
+            } catch (e) {
+                /*ignore*/
+            }
         }
 
         if (this.notifyHandler && !this.uniqueKey) {
