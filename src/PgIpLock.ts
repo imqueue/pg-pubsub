@@ -402,32 +402,27 @@ export class PgIpLock implements AnyLock {
             RETURNS TRIGGER LANGUAGE PLPGSQL AS $$
             BEGIN PERFORM PG_NOTIFY(OLD.channel, '1'); RETURN OLD; END; $$
         `);
-        await this.options.pgClient.query(`
-            BEGIN
-        `);
 
-        try {
-            await this.options.pgClient.query(`
-                DROP TRIGGER IF EXISTS notify_release_lock_trigger
-                    ON ${ PgIpLock.schemaName }.lock
-            `);
-            // noinspection SqlResolve
-            await this.options.pgClient.query(`
-                CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
-                AFTER DELETE ON ${PgIpLock.schemaName}.lock
-                DEFERRABLE INITIALLY DEFERRED
-                FOR EACH ROW EXECUTE PROCEDURE ${
-            PgIpLock.schemaName}.notify_lock()
-            `);
-            await this.options.pgClient.query(`
-                COMMIT
-            `);
-        } catch (err) {
-            // istanbul ignore next
-            await this.options.pgClient.query(`
-                ROLLBACK
-            `);
-        }
+        await this.options.pgClient.query(`
+            DO $$
+            BEGIN
+                BEGIN
+                    DROP TRIGGER IF EXISTS notify_release_lock_trigger 
+                        ON ${PgIpLock.schemaName}.lock;
+            
+                    CREATE CONSTRAINT TRIGGER notify_release_lock_trigger
+                        AFTER DELETE ON ${PgIpLock.schemaName}.lock
+                        DEFERRABLE INITIALLY DEFERRED
+                        FOR EACH ROW EXECUTE PROCEDURE ${
+                        PgIpLock.schemaName}.notify_lock();
+            
+                    COMMIT;
+                EXCEPTION
+                    WHEN OTHERS THEN
+                        ROLLBACK;
+                END;
+            END $$
+        `);
     }
 
     /**
@@ -437,35 +432,23 @@ export class PgIpLock implements AnyLock {
      */
     private async createDeadlockCheck(): Promise<void> {
         await this.options.pgClient.query(`
+            CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
+                old_app TEXT,
+                new_app TEXT)
+            RETURNS TEXT LANGUAGE PLPGSQL AS $$
+            DECLARE num_apps INTEGER;
             BEGIN
+                SELECT count(query) INTO num_apps
+                FROM pg_stat_activity
+                WHERE application_name = old_app;
+                IF num_apps > 0 THEN
+                    RAISE EXCEPTION 'Duplicate channel for app %', new_app
+                    USING DETAIL = 'LOCKED';
+                END IF;
+                RETURN new_app;
+            END; 
+            $$
         `);
-        try {
-            await this.options.pgClient.query(`
-                CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
-                    old_app TEXT,
-                    new_app TEXT)
-                RETURNS TEXT LANGUAGE PLPGSQL AS $$
-                DECLARE num_apps INTEGER;
-                BEGIN
-                    SELECT count(query) INTO num_apps
-                    FROM pg_stat_activity
-                    WHERE application_name = old_app;
-                    IF num_apps > 0 THEN
-                        RAISE EXCEPTION 'Duplicate channel for app %', new_app
-                        USING DETAIL = 'LOCKED';
-                    END IF;
-                    RETURN new_app;
-                END; $$;
-            `);
-            await this.options.pgClient.query(`
-                COMMIT
-            `);
-        } catch (err) {
-            // istanbul ignore next
-            await this.options.pgClient.query(`
-                ROLLBACK
-            `);
-        }
     }
 }
 
