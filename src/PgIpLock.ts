@@ -435,7 +435,7 @@ export class PgIpLock implements AnyLock {
             CREATE OR REPLACE FUNCTION ${PgIpLock.schemaName}.deadlock_check(
                 old_app TEXT,
                 new_app TEXT,
-                time TIMESTAMP WITH TIME ZONE
+                call_time TIMESTAMP WITH TIME ZONE
             )
             RETURNS TEXT LANGUAGE PLPGSQL AS $$
             DECLARE num_apps INTEGER;
