@@ -124,6 +124,7 @@ export class PgIpLock implements AnyLock {
         if (!this.uniqueKey) {
             await this.listen();
 
+            // noinspection TypeScriptValidateTypes
             !this.acquireTimer && (this.acquireTimer = setInterval(
                 () => !this.acquired && this.acquire(),
                 this.options.acquireInterval,
@@ -273,6 +274,7 @@ export class PgIpLock implements AnyLock {
             }
 
             if (this.acquireTimer) {
+                // noinspection TypeScriptValidateTypes
                 clearInterval(this.acquireTimer);
                 delete this.acquireTimer;
             }
@@ -478,10 +480,10 @@ async function destroyLock(): Promise<number> {
         return 0;
     } catch (err) {
         // istanbul ignore next
-        (PgIpLock.hasInstances()
+        ((PgIpLock.hasInstances()
                 ? (PgIpLock as any).instances[0].options.logger
                 : console
-        ).error(err);
+        ) as any)?.error(err);
 
         return 1;
     }
