@@ -50,7 +50,7 @@
     "@types/node": "^20.9.0",
     "@types/pg": "^8.10.9",
     "@types/pg-format": "^1.0.5",
-    "murmurhash-native": "^3.5.0",
+    "farmhash": "^4.0.1",
     "pg": "^8.11.3",
     "pg-format": "^1.0.4",
     "uuid": "^9.0.1"
