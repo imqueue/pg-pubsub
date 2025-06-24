@@ -51,7 +51,7 @@ you're going to use LISTEN/NOTIFY in your node app:
     you have special needs, like max retry limit or reconnection delay.
  2. It provides **clean way working with channels**, so you may subscribe to
     an exactly required channel with no need to do additional filtering
-    implementation on messages receive. BTW, it does nod hide from you
+    implementation on messages receive. BTW, it does not hide from you
     possibility to manage all messages in a single handler. You just choose
     what you need.
  3. The most important feature here is that this library comes with the first-class
