@@ -1,4 +1,5 @@
 .gitignore
+.github
 .travis.yml
 .dockerignore
 .ssh/
