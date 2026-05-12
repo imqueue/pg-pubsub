@@ -24,7 +24,8 @@ import '../mocks';
 import { expect } from 'chai';
 import { Client } from 'pg';
 import * as sinon from 'sinon';
-import { PgClient, PgIpLock, PgPubSub, RETRY_LIMIT } from '../../src';
+import * as pgMock from '../mocks/pg';
+import { PgIpLock, PgPubSub, RETRY_LIMIT } from '../../src';
 
 describe('PgPubSub', () => {
     let pgClient: Client;
@@ -37,7 +38,7 @@ describe('PgPubSub', () => {
                 payload: 'true',
             });
         });
-    }
+    };
 
     beforeEach(() => {
         pgClient = new Client();
@@ -89,15 +90,20 @@ describe('PgPubSub', () => {
             });
         });
     });
+
+    afterEach(() => {
+        pgMock.setOnConnect(null);
+    });
+
     describe('reconnect', () => {
         it('should support automatic reconnect', done => {
             let counter = 0;
 
-            // emulate termination
-            (pgClient as any).connect = () => {
+            // Make all new client connections emit 'end'
+            pgMock.setOnConnect((client: any) => {
                 counter++;
-                pgClient.emit('end');
-            };
+                client.emit('end');
+            });
 
             pubSub.on('error', err => {
                 expect(err.message).equals(
@@ -111,18 +117,15 @@ describe('PgPubSub', () => {
         it('should fire connect event only once', done => {
             let connectCalls = 0;
 
-            // emulate termination
-            (pgClient as any).connect = () => {
+            // First connection attempt fails, second succeeds
+            pgMock.setOnConnect((client: any) => {
                 if (connectCalls < 1) {
-                    pgClient.emit('error');
+                    client.emit('error');
+                } else {
+                    client.emit('connect');
                 }
-
-                else {
-                    pgClient.emit('connect');
-                }
-
                 connectCalls++;
-            };
+            });
 
             // test will fail if done is called more than once
             pubSub.on('connect', done);
@@ -131,11 +134,11 @@ describe('PgPubSub', () => {
         it('should support automatic reconnect on errors', done => {
             let counter = 0;
 
-            // emulate termination
-            (pgClient as any).connect = () => {
+            // Make all new client connections emit 'error'
+            pgMock.setOnConnect((client: any) => {
                 counter++;
-                pgClient.emit('error');
-            };
+                client.emit('error');
+            });
 
             pubSub.on('error', err => {
                 if (err) {
@@ -149,10 +152,10 @@ describe('PgPubSub', () => {
             pubSub.connect().catch(() => { /* ignore faking errors */ });
         });
         it('should emit error and end if retry limit reached', async () => {
-            // emulate connection failure
-            (pgClient as any).connect = async () => {
-                pgClient.emit('end');
-            };
+            // Make all new client connections fail
+            pgMock.setOnConnect((client: any) => {
+                client.emit('end');
+            });
 
             try { await pubSub.connect(); } catch (err) {
                 expect(err).to.be.instanceOf(Error);
@@ -161,13 +164,27 @@ describe('PgPubSub', () => {
                 );
             }
         });
+        it('should create a fresh client on reconnect', done => {
+            pubSub.connect().then(() => {
+                const originalClient = pubSub.pgClient;
+
+                pubSub.once('reconnect', () => {
+                    // After reconnect, pgClient should be a new instance
+                    expect(pubSub.pgClient).to.not.equal(originalClient);
+                    done();
+                });
+
+                // Simulate connection drop
+                originalClient.emit('end');
+            });
+        });
         it('should re-subscribe all channels', done => {
             pubSub.listen('TestOne');
             pubSub.listen('TestTwo');
 
             const spy = sinon.spy(pubSub, 'listen');
 
-            pubSub.connect().then(() => pgClient.emit('end'));
+            pubSub.connect().then(() => pubSub.pgClient.emit('end'));
 
             setTimeout(() => {
                 expect(spy.calledTwice).to.be.true;
@@ -323,7 +340,7 @@ describe('PgPubSub', () => {
             const spy = sinon.spy(pubSub.pgClient, 'query');
             await pubSub.notify('Test', { a: 'b' });
             const [{ args: [arg, ] }] = spy.getCalls();
-            expect(arg.trim()).equals(`NOTIFY "Test", '{"a":"b"}'`);
+            expect(arg.trim()).equals('NOTIFY "Test", \'{"a":"b"}\'');
         });
     });
     describe('Channels API', () => {
@@ -332,9 +349,7 @@ describe('PgPubSub', () => {
         let pubSub3: PgPubSub;
 
         beforeEach(async () => {
-            const pgClientShared = new Client() as PgClient;
-
-            pubSub1 = new PgPubSub({ pgClient: pgClientShared });
+            pubSub1 = new PgPubSub({ pgClient: new Client() });
             await pubSub1.connect();
             await pubSub1.listen('ChannelOne');
             await pubSub1.listen('ChannelTwo');
@@ -344,7 +359,7 @@ describe('PgPubSub', () => {
             await pubSub2.listen('ChannelThree');
             await pubSub2.listen('ChannelFour');
 
-            pubSub3 = new PgPubSub({ pgClient: pgClientShared });
+            pubSub3 = new PgPubSub({ pgClient: new Client() });
             await pubSub3.connect();
             await pubSub3.listen('ChannelFive');
             await pubSub3.listen('ChannelSix');

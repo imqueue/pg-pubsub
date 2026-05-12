@@ -28,18 +28,44 @@ export interface ClientConfig {
     connectionString?: string;
 }
 
+let _onConnect: ((client: Client) => void) | null = null;
+
+export function setOnConnect(fn: ((client: Client) => void) | null): void {
+    _onConnect = fn;
+}
+
+export function getOnConnect(): ((client: Client) => void) | null {
+    return _onConnect;
+}
+
 // noinspection JSUnusedGlobalSymbols
 export class Client extends EventEmitter {
+    private _connected = false;
+    private _ended = false;
+
     // noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
-    public constructor(options: ClientConfig) {
+    public constructor(_options?: ClientConfig) {
         super();
         this.setMaxListeners(Infinity);
     }
     public connect() {
-        this.emit('connect');
+        if (this._connected || this._ended) {
+            throw new Error(
+                'Client has already been connected. ' +
+                'You cannot reuse a client.',
+            );
+        }
+        this._connected = true;
+
+        if (_onConnect) {
+            _onConnect(this);
+        } else {
+            this.emit('connect');
+        }
     }
     // noinspection JSUnusedGlobalSymbols
     public end() {
+        this._ended = true;
         this.emit('end');
     }
     public async query(queryText: string) {

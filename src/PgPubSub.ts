@@ -296,7 +296,7 @@ export declare interface PgPubSub {
  */
 export class PgPubSub extends EventEmitter {
 
-    public readonly pgClient: PgClient;
+    public pgClient: PgClient;
     public readonly options: PgPubSubOptions;
     public readonly channels: PgChannelEmitter = new PgChannelEmitter();
 
@@ -319,9 +319,6 @@ export class PgPubSub extends EventEmitter {
         this.pgClient = (this.options.pgClient || new Client(this.options)) as
             PgClient;
 
-        this.pgClient.on('end', () => this.emit('end'));
-        this.pgClient.on('error', () => this.emit('error'));
-
         this.onNotification = this.options.executionLock
             ? this.onNotificationLockExec.bind(this)
             : this.onNotification.bind(this)
@@ -329,7 +326,27 @@ export class PgPubSub extends EventEmitter {
         this.reconnect = this.reconnect.bind(this);
         this.onReconnect = this.onReconnect.bind(this);
 
-        this.pgClient.on('notification', this.onNotification);
+        this.initClientListeners(this.pgClient);
+    }
+
+    /**
+     * Sets up event listeners on the given pg client instance.
+     *
+     * @param {PgClient} client - pg client to attach listeners to
+     */
+    private initClientListeners(client: PgClient): void {
+        client.on('end', () => this.emit('end'));
+        client.on('error', (err: Error) => this.emit('error', err));
+        client.on('notification', this.onNotification);
+    }
+
+    /**
+     * Creates a fresh pg.Client instance.
+     *
+     * @return {PgClient}
+     */
+    private createClient(): PgClient {
+        return new Client(this.options) as PgClient;
     }
 
     /**
@@ -645,12 +662,16 @@ export class PgPubSub extends EventEmitter {
 
     /**
      * Reconnect routine, used for implementation of auto-reconnecting db
-     * connection
+     * connection. Creates a fresh pg.Client on each attempt since pg.Client
+     * cannot be reused after disconnect.
      *
      * @access private
      * @return {number}
      */
     private reconnect(): number {
+        this.pgClient.off('end', this.reconnect);
+        this.pgClient.off('error', this.reconnect);
+
         return setTimeout(async () => {
             if (this.options.retryLimit <= ++this.retry) {
                 this.emit('error', new Error(
@@ -659,6 +680,10 @@ export class PgPubSub extends EventEmitter {
 
                 return this.close();
             }
+
+            this.pgClient.removeAllListeners();
+            this.pgClient = this.createClient();
+            this.initClientListeners(this.pgClient);
 
             this.setOnceHandler(['connect'], this.onReconnect);
 
