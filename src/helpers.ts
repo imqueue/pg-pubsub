@@ -19,8 +19,12 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { AnyJson, AnyLogger } from './types';
-import { fingerprint64 } from 'farmhash';
+import { type AnyJson, type AnyLogger } from './types/index.js';
+import farmhash from 'farmhash';
+
+// farmhash is a native CJS addon whose exports cannot be statically
+// analyzed, so named ESM imports are not available for it
+const { fingerprint64 } = farmhash;
 
 /**
  * Performs JSON.stringify on a given input taking into account
@@ -32,9 +36,7 @@ import { fingerprint64 } from 'farmhash';
  * @return {string}
  */
 function stringify(input: AnyJson, pretty?: boolean): string {
-    return pretty
-        ? JSON.stringify(input, null, 2)
-        : JSON.stringify(input);
+    return pretty ? JSON.stringify(input, null, 2) : JSON.stringify(input);
 }
 
 /**

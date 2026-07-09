@@ -19,16 +19,13 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { Notification } from 'pg';
+import { type Notification } from 'pg';
 import { ident, literal } from 'pg-format';
 import { clearInterval } from 'timers';
-import {
-    SCHEMA_NAME,
-    SHUTDOWN_TIMEOUT,
-} from './constants';
-import { AnyLock } from './types';
-import { PgIpLockOptions } from './types/PgIpLockOptions';
-import Timeout = NodeJS.Timeout;
+import { SCHEMA_NAME, SHUTDOWN_TIMEOUT } from './constants.js';
+import { type AnyLock } from './types/index.js';
+import { type PgIpLockOptions } from './types/PgIpLockOptions.js';
+type Timeout = NodeJS.Timeout;
 
 /**
  * Implements manageable inter-process locking mechanism over
@@ -90,7 +87,7 @@ export class PgIpLock implements AnyLock {
 
     private static instances: PgIpLock[] = [];
     private acquired = false;
-    private notifyHandler: (message: Notification) => void;
+    private notifyHandler?: (message: Notification) => void;
     private acquireTimer?: Timeout;
 
     /**
@@ -104,9 +101,10 @@ export class PgIpLock implements AnyLock {
         public readonly options: PgIpLockOptions,
         public readonly uniqueKey?: string,
     ) {
-        this.channel = `__${PgIpLock.name}__:${
-            channel.replace(RX_LOCK_CHANNEL, '')
-        }`;
+        this.channel = `__${PgIpLock.name}__:${channel.replace(
+            RX_LOCK_CHANNEL,
+            '',
+        )}`;
         PgIpLock.instances.push(this);
     }
 
@@ -118,10 +116,13 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     public async init(): Promise<void> {
-        if (!await this.schemaExists()) {
+        if (!(await this.schemaExists())) {
             try {
                 await this.createSchema();
-                await Promise.all([this.createLock(), this.createDeadlockCheck()]);
+                await Promise.all([
+                    this.createLock(),
+                    this.createDeadlockCheck(),
+                ]);
             } catch (e) {
                 /*ignore*/
             }
@@ -139,10 +140,12 @@ export class PgIpLock implements AnyLock {
             await this.listen();
 
             // noinspection TypeScriptValidateTypes
-            !this.acquireTimer && (this.acquireTimer = setInterval(
-                () => !this.acquired && this.acquire(),
-                this.options.acquireInterval,
-            ));
+            if (!this.acquireTimer) {
+                this.acquireTimer = setInterval(
+                    () => !this.acquired && this.acquire(),
+                    this.options.acquireInterval,
+                );
+            }
         }
     }
 
@@ -154,7 +157,7 @@ export class PgIpLock implements AnyLock {
      * @param {(channel: string) => void} handler
      */
     public onRelease(handler: (channel: string) => void): void {
-        if (!!this.notifyHandler) {
+        if (this.notifyHandler) {
             throw new TypeError(
                 'Release handler for IPC lock has been already set up!',
             );
@@ -180,17 +183,21 @@ export class PgIpLock implements AnyLock {
      */
     public async acquire(): Promise<boolean> {
         try {
-            this.uniqueKey
-                ? await this.acquireUniqueLock()
-                : await this.acquireChannelLock()
-            ;
+            if (this.uniqueKey) {
+                await this.acquireUniqueLock();
+            } else {
+                await this.acquireChannelLock();
+            }
+
             this.acquired = true;
         } catch (err) {
             // will throw, because insert duplicates existing lock
             this.acquired = false;
 
             // istanbul ignore next
-            if (!(err.code === 'P0001' && err.detail === 'LOCKED')) {
+            const pgErr = err as { code?: string; detail?: string };
+
+            if (!(pgErr.code === 'P0001' && pgErr.detail === 'LOCKED')) {
                 this.options.logger.error(err);
             }
         }
@@ -210,7 +217,7 @@ export class PgIpLock implements AnyLock {
             WHERE schema_name = '${this.schemaName}'
         `);
 
-        return (rows.length > 0);
+        return rows.length > 0;
     }
 
     /**
@@ -269,7 +276,7 @@ export class PgIpLock implements AnyLock {
             `);
         } else {
             if (!this.acquired) {
-                return ; // nothing to release, this lock has not been acquired
+                return; // nothing to release, this lock has not been acquired
             }
 
             // noinspection SqlResolve
@@ -316,8 +323,7 @@ export class PgIpLock implements AnyLock {
             );
         } catch (err) {
             // do not crash - just log
-            this.options.logger && this.options.logger.error &&
-            this.options.logger.error(err);
+            this.options.logger?.error?.(err);
         }
     }
 
@@ -360,7 +366,7 @@ export class PgIpLock implements AnyLock {
         if (this.uniqueKey) {
             await this.createUniqueLock();
 
-            return ;
+            return;
         }
 
         await this.createChannelLock();
@@ -378,17 +384,17 @@ export class PgIpLock implements AnyLock {
                     IF NOT EXISTS (
                         SELECT *
                         FROM information_schema.columns
-                        WHERE table_schema = '${ this.schemaName }'
+                        WHERE table_schema = '${this.schemaName}'
                             AND table_name = 'lock'
                             AND column_name = 'id'
                     ) THEN
-                        DROP TABLE IF EXISTS ${ this.schemaName }.lock;
+                        DROP TABLE IF EXISTS ${this.schemaName}.lock;
                     END IF;
                 END
             $$
         `);
         await this.options.pgClient.query(`
-            CREATE TABLE IF NOT EXISTS ${ this.schemaName }."lock" (
+            CREATE TABLE IF NOT EXISTS ${this.schemaName}."lock" (
                 "id" CHARACTER VARYING NOT NULL PRIMARY KEY,
                 "channel" CHARACTER VARYING NOT NULL,
                 "app" CHARACTER VARYING NOT NULL
@@ -412,17 +418,17 @@ export class PgIpLock implements AnyLock {
                     IF EXISTS (
                         SELECT *
                         FROM information_schema.columns
-                        WHERE table_schema = '${ this.schemaName }'
+                        WHERE table_schema = '${this.schemaName}'
                             AND table_name = 'lock'
                             AND column_name = 'id'
                     ) THEN
-                        DROP TABLE IF EXISTS ${ this.schemaName }.lock;
+                        DROP TABLE IF EXISTS ${this.schemaName}.lock;
                     END IF;
                 END
             $$
         `);
         await this.options.pgClient.query(`
-            CREATE TABLE IF NOT EXISTS ${ this.schemaName }."lock" (
+            CREATE TABLE IF NOT EXISTS ${this.schemaName}."lock" (
                 "channel" CHARACTER VARYING NOT NULL PRIMARY KEY,
                 "app" CHARACTER VARYING NOT NULL
             )
@@ -445,7 +451,8 @@ export class PgIpLock implements AnyLock {
                     AFTER DELETE ON ${this.schemaName}.lock
                     DEFERRABLE INITIALLY DEFERRED
                     FOR EACH ROW EXECUTE PROCEDURE ${
-                    this.schemaName}.notify_lock()
+                        this.schemaName
+                    }.notify_lock()
             `);
         } catch (e) {
             /*ignore*/
@@ -490,7 +497,10 @@ let timer: any;
 async function terminate(): Promise<void> {
     let code = 0;
 
-    timer && clearTimeout(timer);
+    if (timer) {
+        clearTimeout(timer);
+    }
+
     timer = setTimeout(() => process.exit(code), SHUTDOWN_TIMEOUT);
     code = await destroyLock();
 }
@@ -510,15 +520,16 @@ async function destroyLock(): Promise<number> {
         return 0;
     } catch (err) {
         // istanbul ignore next
-        ((PgIpLock.hasInstances()
+        (
+            (PgIpLock.hasInstances()
                 ? (PgIpLock as any).instances[0].options.logger
-                : console
-        ) as any)?.error(err);
+                : console) as any
+        )?.error(err);
 
         return 1;
     }
 }
 
 process.on('SIGTERM', terminate);
-process.on('SIGINT',  terminate);
+process.on('SIGINT', terminate);
 process.on('SIGABRT', terminate);

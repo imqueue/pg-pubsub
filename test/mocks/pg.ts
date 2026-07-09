@@ -20,7 +20,7 @@
  * <support@imqueue.com> to get commercial licensing options.
  */
 import { EventEmitter } from 'events';
-import { Notification } from 'pg';
+import { type Notification } from 'pg';
 
 let id = 0;
 
@@ -56,9 +56,8 @@ export class Client extends EventEmitter {
             };
 
             this.emit('notification', message);
-            return ;
+            return;
         }
         return { rows: [] };
     }
 }
-

@@ -19,8 +19,8 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { AnyLogger } from './AnyLogger';
-import { PgClient } from './PgClient';
+import { type AnyLogger } from './AnyLogger.js';
+import { type PgClient } from './PgClient.js';
 
 /**
  * Options accepted by PgIpLock constructor.

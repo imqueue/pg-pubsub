@@ -19,7 +19,7 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { AnyLock } from './types';
+import { type AnyLock } from './types/index.js';
 
 // istanbul ignore next
 /**
@@ -35,7 +35,7 @@ export class NoLock implements AnyLock {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public onRelease(handler: (channel: string) => void): void {
-        return ;
+        return;
     }
 
     /**
