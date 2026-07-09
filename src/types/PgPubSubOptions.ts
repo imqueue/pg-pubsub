@@ -19,14 +19,14 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { Client, ClientConfig } from 'pg';
+import { Client, type ClientConfig } from 'pg';
 import {
     ACQUIRE_INTERVAL,
     EXECUTION_LOCK,
     IS_ONE_PROCESS,
     RETRY_DELAY,
     RETRY_LIMIT,
-} from '../constants';
+} from '../constants.js';
 
 /**
  * Options accepted as option argument of PgPubSub constructor.

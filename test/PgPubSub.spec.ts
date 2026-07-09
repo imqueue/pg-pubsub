@@ -19,12 +19,18 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import '../mocks';
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { spy as makeSpy, stub as makeStub } from './mocks/spy.js';
+import './mocks/index.js';
 
-import { expect } from 'chai';
 import { Client } from 'pg';
-import * as sinon from 'sinon';
-import { PgClient, PgIpLock, PgPubSub, RETRY_LIMIT } from '../../src';
+import {
+    type PgClient,
+    PgIpLock,
+    PgPubSub,
+    RETRY_LIMIT,
+} from '../src/index.js';
 
 describe('PgPubSub', () => {
     let pgClient: Client;
@@ -37,7 +43,7 @@ describe('PgPubSub', () => {
                 payload: 'true',
             });
         });
-    }
+    };
 
     beforeEach(() => {
         pgClient = new Client();
@@ -46,25 +52,27 @@ describe('PgPubSub', () => {
     afterEach(async () => pubSub.destroy());
 
     it('should be a class', () => {
-        expect(typeof PgPubSub).equals('function');
+        assert.equal(typeof PgPubSub, 'function');
     });
 
     describe('constructor()', () => {
         it('should accept pg client from options', () => {
-            expect(pubSub.pgClient).equals(pgClient);
+            assert.equal(pubSub.pgClient, pgClient);
         });
         it('should construct pg client from options', () => {
             const ps = new PgPubSub({
                 connectionString: 'postgres://user:pass@localhost:5432/dbname',
             });
-            expect(ps.pgClient).instanceOf(Client);
+            assert.ok(ps.pgClient instanceof Client);
         });
-        it('should properly set events mapping', done => {
+        it('should properly set events mapping', (_: unknown, done: (
+            err?: Error,
+        ) => void) => {
             pubSub.options.singleListener = false;
 
-            const endSpy = sinon.spy();
-            const messageSpy = sinon.spy();
-            const errorSpy = sinon.spy();
+            const endSpy = makeSpy();
+            const messageSpy = makeSpy();
+            const errorSpy = makeSpy();
 
             pubSub.on('end', endSpy);
             pubSub.on('message', messageSpy);
@@ -79,9 +87,9 @@ describe('PgPubSub', () => {
 
             // because some events could be async
             setTimeout(() => {
-                expect(endSpy.calledOnce).to.be.true;
-                expect(messageSpy.calledOnce).to.be.true;
-                expect(errorSpy.calledOnce).to.be.true;
+                assert.equal(endSpy.calledOnce, true);
+                assert.equal(messageSpy.calledOnce, true);
+                assert.equal(errorSpy.calledOnce, true);
 
                 pubSub.options.singleListener = true;
 
@@ -90,7 +98,9 @@ describe('PgPubSub', () => {
         });
     });
     describe('reconnect', () => {
-        it('should support automatic reconnect', done => {
+        it('should support automatic reconnect', (_: unknown, done: (
+            err?: Error,
+        ) => void) => {
             let counter = 0;
 
             // emulate termination
@@ -100,24 +110,27 @@ describe('PgPubSub', () => {
             };
 
             pubSub.on('error', err => {
-                expect(err.message).equals(
+                assert.equal(
+                    err.message,
                     `Connect failed after ${counter} retries...`,
                 );
                 done();
             });
 
-            pubSub.connect().catch(() => { /**/ });
+            pubSub.connect().catch(() => {
+                /**/
+            });
         });
-        it('should fire connect event only once', done => {
+        it('should fire connect event only once', (_: unknown, done: (
+            err?: Error,
+        ) => void) => {
             let connectCalls = 0;
 
             // emulate termination
             (pgClient as any).connect = () => {
                 if (connectCalls < 1) {
                     pgClient.emit('error');
-                }
-
-                else {
+                } else {
                     pgClient.emit('connect');
                 }
 
@@ -126,9 +139,13 @@ describe('PgPubSub', () => {
 
             // test will fail if done is called more than once
             pubSub.on('connect', done);
-            pubSub.connect().catch(() => { /**/ });
+            pubSub.connect().catch(() => {
+                /**/
+            });
         });
-        it('should support automatic reconnect on errors', done => {
+        it('should support automatic reconnect on errors', (_: unknown, done: (
+            err?: Error,
+        ) => void) => {
             let counter = 0;
 
             // emulate termination
@@ -139,14 +156,17 @@ describe('PgPubSub', () => {
 
             pubSub.on('error', err => {
                 if (err) {
-                    expect(err.message).equals(
+                    assert.equal(
+                        err.message,
                         `Connect failed after ${counter} retries...`,
                     );
                     done();
                 }
             });
 
-            pubSub.connect().catch(() => { /* ignore faking errors */ });
+            pubSub.connect().catch(() => {
+                /* ignore faking errors */
+            });
         });
         it('should emit error and end if retry limit reached', async () => {
             // emulate connection failure
@@ -154,23 +174,28 @@ describe('PgPubSub', () => {
                 pgClient.emit('end');
             };
 
-            try { await pubSub.connect(); } catch (err) {
-                expect(err).to.be.instanceOf(Error);
-                expect(err.message).equals(
+            try {
+                await pubSub.connect();
+            } catch (err) {
+                assert.ok(err instanceof Error);
+                assert.equal(
+                    err.message,
                     `Connect failed after ${RETRY_LIMIT} retries...`,
                 );
             }
         });
-        it('should re-subscribe all channels', done => {
+        it('should re-subscribe all channels', (_: unknown, done: (
+            err?: Error,
+        ) => void) => {
             pubSub.listen('TestOne');
             pubSub.listen('TestTwo');
 
-            const spy = sinon.spy(pubSub, 'listen');
+            const spy = makeSpy(pubSub, 'listen');
 
             pubSub.connect().then(() => pgClient.emit('end'));
 
             setTimeout(() => {
-                expect(spy.calledTwice).to.be.true;
+                assert.equal(spy.calledTwice, true);
                 done();
             }, 30);
         });
@@ -186,39 +211,51 @@ describe('PgPubSub', () => {
 
             await pubSub.connect();
 
-            expect(counter).equals(1);
+            assert.equal(counter, 1);
         });
     });
     describe('listen()', () => {
         it('should call SQL LISTEN "channel" command', async () => {
             pubSub.options.singleListener = true;
-            const spy = sinon.spy(pubSub.pgClient, 'query');
+            const spy = makeSpy(pubSub.pgClient, 'query');
             await pubSub.listen('Test');
-            const [{ args: [arg] }] = spy.getCalls();
-            expect(/^LISTEN\s+"Test"/.test(arg.trim()));
+            assert.ok(
+                spy
+                    .getCalls()
+                    .some(({ args: [arg] }) =>
+                        /^LISTEN\s+"Test"/.test(String(arg).trim()),
+                    ),
+            );
         });
         it('should call SQL LISTEN "channel" command always', async () => {
             pubSub.options.singleListener = false;
-            const spy = sinon.spy(pubSub.pgClient, 'query');
+            const spy = makeSpy(pubSub.pgClient, 'query');
             await pubSub.listen('Test');
-            const [{ args: [arg] }] = spy.getCalls();
-            expect(/^LISTEN\s+"Test"/.test(arg.trim()));
+            assert.ok(
+                spy
+                    .getCalls()
+                    .some(({ args: [arg] }) =>
+                        /^LISTEN\s+"Test"/.test(String(arg).trim()),
+                    ),
+            );
         });
-        it('should handle messages from db with acquired lock', done => {
+        it('should handle messages from db with acquired lock', (_: unknown, done: (
+            err?: Error,
+        ) => void) => {
             pubSub.options.singleListener = true;
 
             listenFunc(pubSub);
 
             pubSub.on('message', (chanel, message) => {
-                expect(chanel).equals('TestChannel');
-                expect(message).equals(true);
+                assert.equal(chanel, 'TestChannel');
+                assert.equal(message, true);
                 done();
             });
         });
         it('should not handle messages from db with no lock', async () => {
             pubSub.options.singleListener = true;
 
-            const spy = sinon.spy(pubSub, 'emit');
+            const spy = makeSpy(pubSub, 'emit');
 
             await pubSub.listen('TestChannel');
             await (pubSub as any).locks.TestChannel.release();
@@ -230,13 +267,13 @@ describe('PgPubSub', () => {
 
             await new Promise(resolve => setTimeout(resolve, 20));
 
-            expect(spy.calledWith('message', 'TestChannel', true)).to.be.false;
+            assert.equal(spy.calledWith('message', 'TestChannel', true), false);
         });
         it('should avoid handling lock channel messages', async () => {
             pubSub.options.singleListener = true;
 
-            const spy = sinon.spy(pubSub, 'emit');
-            const spyChannel = sinon.spy(pubSub.channels, 'emit');
+            const spy = makeSpy(pubSub, 'emit');
+            const spyChannel = makeSpy(pubSub.channels, 'emit');
             const channel = `__${PgIpLock.name}__:TestChannel`;
 
             await pubSub.listen('TestChannel');
@@ -245,85 +282,121 @@ describe('PgPubSub', () => {
                 payload: 'true',
             });
 
-            expect(spy.calledWithExactly(
-                ['message', channel, true] as any,
-            )).to.be.false;
-            expect(spyChannel.called).to.be.false;
+            assert.equal(
+                spy.calledWithExactly(['message', channel, true] as any),
+                false,
+            );
+            assert.equal(spyChannel.called, false);
         });
-        it('should handle messages from db with acquired execution '
-            + 'lock', done => {
-            pubSub = new PgPubSub({
-                pgClient, executionLock: true, singleListener: true,
-            });
+        it(
+            'should handle messages from db with acquired execution ' + 'lock',
+            (_: unknown, done: (err?: Error) => void) => {
+                pubSub = new PgPubSub({
+                    pgClient,
+                    executionLock: true,
+                    singleListener: true,
+                });
 
-            listenFunc(pubSub);
+                listenFunc(pubSub);
 
-            pubSub.on('message', (chanel, message) => {
-                expect(chanel).equals('TestChannel');
-                expect(message).equals(true);
-                done();
-            });
-        });
-        it('should handle messages from db with acquired execution '
-            + 'lock and multiple listeners', done => {
-            pubSub = new PgPubSub({
-                pgClient, executionLock: true, singleListener: false,
-            });
+                pubSub.on('message', (chanel, message) => {
+                    assert.equal(chanel, 'TestChannel');
+                    assert.equal(message, true);
+                    done();
+                });
+            },
+        );
+        it(
+            'should handle messages from db with acquired execution ' +
+                'lock and multiple listeners',
+            (_: unknown, done: (err?: Error) => void) => {
+                pubSub = new PgPubSub({
+                    pgClient,
+                    executionLock: true,
+                    singleListener: false,
+                });
 
-            listenFunc(pubSub);
+                listenFunc(pubSub);
 
-            pubSub.on('message', (chanel, message) => {
-                expect(chanel).equals('TestChannel');
-                expect(message).equals(true);
-                done();
-            });
-        });
+                pubSub.on('message', (chanel, message) => {
+                    assert.equal(chanel, 'TestChannel');
+                    assert.equal(message, true);
+                    done();
+                });
+            },
+        );
     });
     describe('unlisten()', () => {
         it('should call SQL UNLISTEN "channel" command', async () => {
             pubSub.options.singleListener = true;
-            const spy = sinon.spy(pubSub.pgClient, 'query');
+            const spy = makeSpy(pubSub.pgClient, 'query');
             await pubSub.unlisten('Test');
-            const [{ args: [arg] }] = spy.getCalls();
-            expect(/^UNLISTEN\s+"Test"/.test(arg.trim()));
+            assert.ok(
+                spy
+                    .getCalls()
+                    .some(({ args: [arg] }) =>
+                        /^UNLISTEN\s+"Test"/.test(String(arg).trim()),
+                    ),
+            );
         });
         it('should call SQL UNLISTEN "channel" command always', async () => {
             pubSub.options.singleListener = false;
-            const spy = sinon.spy(pubSub.pgClient, 'query');
+            const spy = makeSpy(pubSub.pgClient, 'query');
             await pubSub.unlisten('Test');
-            const [{ args: [arg] }] = spy.getCalls();
-            expect(/^UNLISTEN\s+"Test"/.test(arg.trim()));
+            assert.ok(
+                spy
+                    .getCalls()
+                    .some(({ args: [arg] }) =>
+                        /^UNLISTEN\s+"Test"/.test(String(arg).trim()),
+                    ),
+            );
         });
         it('should destroy existing locks', async () => {
             await pubSub.listen('Test');
-            const spy = sinon.spy((pubSub as any).locks.Test, 'destroy');
-            expect(spy.called).to.be.false;
+            const spy = makeSpy((pubSub as any).locks.Test, 'destroy');
+            assert.equal(spy.called, false);
             await pubSub.unlisten('Test');
-            expect(spy.called).to.be.true;
+            assert.equal(spy.called, true);
         });
     });
     describe('unlistenAll()', () => {
         it('should call SQL UNLISTEN * command', async () => {
             pubSub.options.singleListener = true;
-            const spy = sinon.spy(pubSub.pgClient, 'query');
+            const spy = makeSpy(pubSub.pgClient, 'query');
             await pubSub.unlistenAll();
-            const [{ args: [arg] }] = spy.getCalls();
-            expect(/^UNLISTEN\s+\*/.test(arg.trim()));
+            assert.ok(
+                spy
+                    .getCalls()
+                    .some(({ args: [arg] }) =>
+                        /^UNLISTEN\s+\*/.test(String(arg).trim()),
+                    ),
+            );
         });
         it('should call SQL UNLISTEN * command always', async () => {
             pubSub.options.singleListener = false;
-            const spy = sinon.spy(pubSub.pgClient, 'query');
+            const spy = makeSpy(pubSub.pgClient, 'query');
             await pubSub.unlistenAll();
-            const [{ args: [arg] }] = spy.getCalls();
-            expect(/^UNLISTEN\s+\*/.test(arg.trim()));
+            assert.ok(
+                spy
+                    .getCalls()
+                    .some(({ args: [arg] }) =>
+                        /^UNLISTEN\s+\*/.test(String(arg).trim()),
+                    ),
+            );
         });
     });
     describe('notify()', () => {
         it('should call SQL NOTIFY command', async () => {
-            const spy = sinon.spy(pubSub.pgClient, 'query');
+            const spy = makeSpy(pubSub.pgClient, 'query');
             await pubSub.notify('Test', { a: 'b' });
-            const [{ args: [arg, ] }] = spy.getCalls();
-            expect(arg.trim()).equals(`NOTIFY "Test", '{"a":"b"}'`);
+            assert.ok(
+                spy
+                    .getCalls()
+                    .some(
+                        ({ args: [arg] }) =>
+                            String(arg).trim() === `NOTIFY "Test", '{"a":"b"}'`,
+                    ),
+            );
         });
     });
     describe('Channels API', () => {
@@ -354,68 +427,81 @@ describe('PgPubSub', () => {
             // make sure all async events handled
             await new Promise(resolve => setTimeout(resolve));
         });
-        afterEach(async () => Promise.all([
-            pubSub1.destroy(),
-            pubSub2.destroy(),
-            pubSub3.destroy(),
-        ]));
+        afterEach(async () =>
+            Promise.all([
+                pubSub1.destroy(),
+                pubSub2.destroy(),
+                pubSub3.destroy(),
+            ]),
+        );
 
         describe('activeChannels()', () => {
             it('should return active channels only', () => {
-                expect(pubSub1.activeChannels()).to.have.same.members([
-                    'ChannelOne', 'ChannelTwo',
-                ]);
-                expect(pubSub2.activeChannels()).to.have.same.members([
-                    'ChannelThree', 'ChannelFour',
-                ]);
-                expect(pubSub3.activeChannels()).to.have.same.members([
-                    'ChannelFive', 'ChannelSix',
-                ]);
+                assert.deepEqual(
+                    [...pubSub1.activeChannels()].sort(),
+                    ['ChannelOne', 'ChannelTwo'].sort(),
+                );
+                assert.deepEqual(
+                    [...pubSub2.activeChannels()].sort(),
+                    ['ChannelThree', 'ChannelFour'].sort(),
+                );
+                assert.deepEqual(
+                    [...pubSub3.activeChannels()].sort(),
+                    ['ChannelFive', 'ChannelSix'].sort(),
+                );
             });
         });
         describe('inactiveChannels()', () => {
             it('should return inactive channels only', () => {
-                expect(pubSub1.inactiveChannels()).deep.equals([]);
-                expect(pubSub2.inactiveChannels()).deep.equals([]);
-                expect(pubSub3.inactiveChannels()).to.have.same.members([
-                    'ChannelOne', 'ChannelTwo',
-                ]);
+                assert.deepEqual(pubSub1.inactiveChannels(), []);
+                assert.deepEqual(pubSub2.inactiveChannels(), []);
+                assert.deepEqual(
+                    [...pubSub3.inactiveChannels()].sort(),
+                    ['ChannelOne', 'ChannelTwo'].sort(),
+                );
             });
         });
         describe('allChannels()', () => {
             it('should return all channels', () => {
-                expect(pubSub1.allChannels()).to.have.same.members([
-                    'ChannelOne', 'ChannelTwo',
-                ]);
-                expect(pubSub2.allChannels()).to.have.same.members([
-                    'ChannelThree', 'ChannelFour',
-                ]);
-                expect(pubSub3.allChannels()).to.have.same.members([
-                    'ChannelOne', 'ChannelTwo',
-                    'ChannelFive', 'ChannelSix',
-                ]);
+                assert.deepEqual(
+                    [...pubSub1.allChannels()].sort(),
+                    ['ChannelOne', 'ChannelTwo'].sort(),
+                );
+                assert.deepEqual(
+                    [...pubSub2.allChannels()].sort(),
+                    ['ChannelThree', 'ChannelFour'].sort(),
+                );
+                assert.deepEqual(
+                    [...pubSub3.allChannels()].sort(),
+                    [
+                        'ChannelOne',
+                        'ChannelTwo',
+                        'ChannelFive',
+                        'ChannelSix',
+                    ].sort(),
+                );
             });
         });
         describe('isActive()', () => {
             it('should return true if given channel is active', () => {
-                expect(pubSub1.isActive('ChannelOne')).to.be.true;
-                expect(pubSub1.isActive('ChannelTwo')).to.be.true;
-                expect(pubSub2.isActive('ChannelThree')).to.be.true;
-                expect(pubSub2.isActive('ChannelFour')).to.be.true;
-                expect(pubSub3.isActive('ChannelFive')).to.be.true;
-                expect(pubSub3.isActive('ChannelSix')).to.be.true;
+                assert.equal(pubSub1.isActive('ChannelOne'), true);
+                assert.equal(pubSub1.isActive('ChannelTwo'), true);
+                assert.equal(pubSub2.isActive('ChannelThree'), true);
+                assert.equal(pubSub2.isActive('ChannelFour'), true);
+                assert.equal(pubSub3.isActive('ChannelFive'), true);
+                assert.equal(pubSub3.isActive('ChannelSix'), true);
             });
             it('should return false if given channel is not active', () => {
-                expect(pubSub1.isActive('ChannelThree')).to.be.false;
-                expect(pubSub1.isActive('ChannelFour')).to.be.false;
+                assert.equal(pubSub1.isActive('ChannelThree'), false);
+                assert.equal(pubSub1.isActive('ChannelFour'), false);
             });
             it('should return true if there is active channels', () => {
-                expect(pubSub1.isActive()).to.be.true;
-                expect(pubSub2.isActive()).to.be.true;
-                expect(pubSub3.isActive()).to.be.true;
+                assert.equal(pubSub1.isActive(), true);
+                assert.equal(pubSub2.isActive(), true);
+                assert.equal(pubSub3.isActive(), true);
             });
             it('should return false if there are no active channels', () => {
-                expect(pubSub.isActive()).to.be.false;
+                assert.equal(pubSub.isActive(), false);
             });
         });
     });
@@ -425,12 +511,12 @@ describe('PgPubSub', () => {
             await pubSub.listen('Two');
 
             const spies = [
-                sinon.spy((pubSub as any).locks.One, 'release'),
-                sinon.spy((pubSub as any).locks.Two, 'release'),
+                makeSpy((pubSub as any).locks.One, 'release'),
+                makeSpy((pubSub as any).locks.Two, 'release'),
             ];
 
             await (pubSub as any).release();
-            spies.forEach(spy => expect(spy.called).to.be.true);
+            spies.forEach(spy => assert.equal(spy.called, true));
         });
         it('should skip locks which was not acquired', async () => {
             await pubSub.listen('One');
@@ -440,12 +526,12 @@ describe('PgPubSub', () => {
             await (pubSub as any).locks.Two.release();
 
             const spies = [
-                sinon.spy((pubSub as any).locks.One, 'release'),
-                sinon.spy((pubSub as any).locks.Two, 'release'),
+                makeSpy((pubSub as any).locks.One, 'release'),
+                makeSpy((pubSub as any).locks.Two, 'release'),
             ];
 
             await (pubSub as any).release();
-            spies.forEach(spy => expect(spy.called).to.be.false);
+            spies.forEach(spy => assert.equal(spy.called, false));
         });
         it('should release only acquired locks', async () => {
             await pubSub.listen('One');
@@ -454,27 +540,26 @@ describe('PgPubSub', () => {
             await (pubSub as any).locks.One.release();
 
             const [one, two] = [
-                sinon.spy((pubSub as any).locks.One, 'release'),
-                sinon.spy((pubSub as any).locks.Two, 'release'),
+                makeSpy((pubSub as any).locks.One, 'release'),
+                makeSpy((pubSub as any).locks.Two, 'release'),
             ];
 
             await (pubSub as any).release();
 
-            expect(one.called).to.be.false;
-            expect(two.called).to.be.true;
+            assert.equal(one.called, false);
+            assert.equal(two.called, true);
         });
     });
     describe('setProcessId()', () => {
         it('should set process id', async () => {
-            const stub = sinon.stub(pgClient, 'query').resolves({
+            const stub = makeStub(pgClient, 'query').resolves({
                 rows: [{ pid: 7777 }],
             });
             await (pubSub as any).setProcessId();
-            expect((pubSub as any).processId).equals(7777);
+            assert.equal((pubSub as any).processId, 7777);
             stub.restore();
         });
-        it('should filter messages if set and "filtered" option is set',
-            async () => {
+        it('should filter messages if set and "filtered" option is set', async () => {
             pubSub.options.singleListener = false;
             pubSub.options.filtered = false;
             (pubSub as any).processId = 7777;
@@ -491,7 +576,7 @@ describe('PgPubSub', () => {
 
             await new Promise(res => setTimeout(res));
 
-            expect(counter).equals(1);
+            assert.equal(counter, 1);
 
             pubSub.options.filtered = true;
             pgClient.emit('notification', {
@@ -502,56 +587,59 @@ describe('PgPubSub', () => {
 
             await new Promise(res => setTimeout(res));
 
-            expect(counter).equals(1);
+            assert.equal(counter, 1);
         });
-        it('should filter messages if set and "filtered" option is set and'
-            + ' execution lock is set', async () => {
-            const pubSubCopy = new PgPubSub({
-                singleListener: false,
-                filtered: false,
-                executionLock: true,
-                pgClient,
-            });
-            (pubSubCopy as any).processId = 7777;
+        it(
+            'should filter messages if set and "filtered" option is set and' +
+                ' execution lock is set',
+            async () => {
+                const pubSubCopy = new PgPubSub({
+                    singleListener: false,
+                    filtered: false,
+                    executionLock: true,
+                    pgClient,
+                });
+                (pubSubCopy as any).processId = 7777;
 
-            await pubSubCopy.listen('Test');
-            let counter = 0;
+                await pubSubCopy.listen('Test');
+                let counter = 0;
 
-            pubSubCopy.channels.on('Test', () => ++counter);
-            pgClient.emit('notification', {
-                processId: 7777,
-                channel: 'Test',
-                payload: 'true',
-            });
+                pubSubCopy.channels.on('Test', () => ++counter);
+                pgClient.emit('notification', {
+                    processId: 7777,
+                    channel: 'Test',
+                    payload: 'true',
+                });
 
-            await new Promise(res => setTimeout(res));
+                await new Promise(res => setTimeout(res));
 
-            expect(counter).equals(1);
+                assert.equal(counter, 1);
 
-            pubSubCopy.options.filtered = true;
-            pgClient.emit('notification', {
-                processId: 7777,
-                channel: 'Test',
-                payload: 'true',
-            });
+                pubSubCopy.options.filtered = true;
+                pgClient.emit('notification', {
+                    processId: 7777,
+                    channel: 'Test',
+                    payload: 'true',
+                });
 
-            await new Promise(res => setTimeout(res));
+                await new Promise(res => setTimeout(res));
 
-            expect(counter).equals(1);
-            await pubSub.destroy();
-        });
+                assert.equal(counter, 1);
+                await pubSub.destroy();
+            },
+        );
     });
     describe('destroy()', () => {
         it('should properly handle destruction', async () => {
             const spies = [
-                sinon.spy(pubSub, 'close'),
-                sinon.spy(pubSub, 'removeAllListeners'),
-                sinon.spy(pubSub.channels, 'removeAllListeners'),
-                sinon.spy(PgIpLock, 'destroy'),
+                makeSpy(pubSub, 'close'),
+                makeSpy(pubSub, 'removeAllListeners'),
+                makeSpy(pubSub.channels, 'removeAllListeners'),
+                makeSpy(PgIpLock, 'destroy'),
             ];
             await pubSub.destroy();
             spies.forEach(spy => {
-                expect(spy.calledOnce).to.be.true;
+                assert.equal(spy.calledOnce, true);
                 spy.restore();
             });
         });

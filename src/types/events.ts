@@ -19,7 +19,7 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { AnyJson } from '../types';
+import { type AnyJson } from '../types/index.js';
 
 /**
  * Channel listener event, occurs whenever the listening channel gets a new

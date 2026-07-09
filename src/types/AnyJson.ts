@@ -22,12 +22,14 @@
 /**
  * Represents any JSON-serializable value
  */
-export type AnyJson =  boolean | number | string | null | JsonArray | JsonMap;
+export type AnyJson = boolean | number | string | null | JsonArray | JsonMap;
 
 /**
  * Represents JSON serializable object
  */
-export interface JsonMap { [key: string]: AnyJson };
+export interface JsonMap {
+    [key: string]: AnyJson;
+}
 
 /**
  * Represents JSON-serializable array

@@ -20,34 +20,36 @@
  * <support@imqueue.com> to get commercial licensing options.
  */
 import { EventEmitter } from 'events';
-import { Client, Notification } from 'pg';
+import { Client, type Notification } from 'pg';
 import { ident, literal } from 'pg-format';
 import { v4 as uuid } from 'uuid';
 import {
-    AnyJson,
-    AnyLock,
-    AnyLogger,
-    close,
-    connect,
+    type AnyJson,
+    type AnyLock,
+    type AnyLogger,
+    type close,
+    type connect,
     DefaultOptions,
-    end,
-    error,
-    listen,
-    message,
+    type end,
+    type error,
+    type listen,
+    type message,
     NoLock,
-    notify,
+    type notify,
     pack,
-    PgClient,
+    type PgClient,
     PgIpLock,
-    PgPubSubOptions,
-    reconnect,
-    RX_LOCK_CHANNEL, signature,
-    unlisten,
+    type PgPubSubOptions,
+    type reconnect,
+    RX_LOCK_CHANNEL,
+    signature,
+    type unlisten,
     unpack,
-} from '.';
-import { PgChannelEmitter } from './PgChannelEmitter';
+} from './index.js';
+import { PgChannelEmitter } from './PgChannelEmitter.js';
 
 // PgPubSub Events
+// oxlint-disable-next-line no-unsafe-declaration-merging
 export declare interface PgPubSub {
     /**
      * Sets `'end'` event handler
@@ -295,14 +297,13 @@ export declare interface PgPubSub {
  * messages...
  */
 export class PgPubSub extends EventEmitter {
-
     public readonly pgClient: PgClient;
     public readonly options: PgPubSubOptions;
     public readonly channels: PgChannelEmitter = new PgChannelEmitter();
 
     private locks: { [channel: string]: AnyLock } = {};
     private retry = 0;
-    private processId: number;
+    private processId?: number;
 
     /**
      * @constructor
@@ -316,16 +317,15 @@ export class PgPubSub extends EventEmitter {
         super();
 
         this.options = { ...DefaultOptions, ...options };
-        this.pgClient = (this.options.pgClient || new Client(this.options)) as
-            PgClient;
+        this.pgClient = (this.options.pgClient ||
+            new Client(this.options)) as PgClient;
 
         this.pgClient.on('end', () => this.emit('end'));
         this.pgClient.on('error', () => this.emit('error'));
 
         this.onNotification = this.options.executionLock
             ? this.onNotificationLockExec.bind(this)
-            : this.onNotification.bind(this)
-        ;
+            : this.onNotification.bind(this);
         this.reconnect = this.reconnect.bind(this);
         this.onReconnect = this.onReconnect.bind(this);
 
@@ -392,7 +392,7 @@ export class PgPubSub extends EventEmitter {
         if (this.options.executionLock) {
             await this.pgClient.query(`LISTEN ${ident(channel)}`);
             this.emit('listen', channel);
-            return ;
+            return;
         }
 
         const lock = await this.lock(channel);
@@ -469,8 +469,8 @@ export class PgPubSub extends EventEmitter {
      * @return {string[]}
      */
     public inactiveChannels(): string[] {
-        return Object.keys(this.locks).filter(channel =>
-            !this.locks[channel].isAcquired(),
+        return Object.keys(this.locks).filter(
+            channel => !this.locks[channel].isAcquired(),
         );
     }
 
@@ -550,9 +550,12 @@ export class PgPubSub extends EventEmitter {
         event: string,
         handler: (...args: any[]) => any,
     ): void {
-        this.pgClient.listeners(event).forEach(listener =>
-            listener === handler && this.pgClient.off(event, handler),
-        );
+        this.pgClient
+            .listeners(event)
+            .forEach(
+                listener =>
+                    listener === handler && this.pgClient.off(event, handler),
+            );
     }
 
     /**
@@ -564,16 +567,17 @@ export class PgPubSub extends EventEmitter {
      */
     private async onNotification(notification: Notification): Promise<void> {
         const lock = await this.lock(notification.channel);
-        const skip = RX_LOCK_CHANNEL.test(notification.channel) || (
-            this.options.filtered && this.processId === notification.processId
-        );
+        const skip =
+            RX_LOCK_CHANNEL.test(notification.channel) ||
+            (this.options.filtered &&
+                this.processId === notification.processId);
 
         if (skip) {
             // as we use the same connection with locks mechanism
             // we should avoid pub/sub client to parse lock channels data
             // and also filter same-notify-channel messages if filtered option
             // is set to true
-            return ;
+            return;
         }
 
         if (this.options.singleListener && !lock.isAcquired()) {
@@ -596,23 +600,27 @@ export class PgPubSub extends EventEmitter {
     private async onNotificationLockExec(
         notification: Notification,
     ): Promise<void> {
-        const skip = RX_LOCK_CHANNEL.test(notification.channel) || (
-            this.options.filtered && this.processId === notification.processId
-        );
+        const skip =
+            RX_LOCK_CHANNEL.test(notification.channel) ||
+            (this.options.filtered &&
+                this.processId === notification.processId);
 
         if (skip) {
             // as we use the same connection with locks mechanism
             // we should avoid pub/sub client to parse lock channels data
             // and also filter same-notify-channel messages if filtered option
             // is set to true
-            return ;
+            return;
         }
 
-        const lock = await this.createLock(notification.channel, signature(
-            notification.processId,
+        const lock = await this.createLock(
             notification.channel,
-            notification.payload,
-        ));
+            signature(
+                notification.processId,
+                notification.channel,
+                notification.payload,
+            ),
+        );
 
         await lock.acquire();
 
@@ -635,9 +643,9 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     private async onReconnect(): Promise<void> {
-        await Promise.all(Object.keys(this.locks).map(channel =>
-            this.listen(channel),
-        ));
+        await Promise.all(
+            Object.keys(this.locks).map(channel => this.listen(channel)),
+        );
 
         this.emit('reconnect', this.retry);
         this.retry = 0;
@@ -651,21 +659,30 @@ export class PgPubSub extends EventEmitter {
      * @return {number}
      */
     private reconnect(): number {
-        return setTimeout(async () => {
-            if (this.options.retryLimit <= ++this.retry) {
-                this.emit('error', new Error(
-                    `Connect failed after ${this.retry} retries...`,
-                ));
+        return setTimeout(
+            async () => {
+                if (this.options.retryLimit <= ++this.retry) {
+                    this.emit(
+                        'error',
+                        new Error(
+                            `Connect failed after ${this.retry} retries...`,
+                        ),
+                    );
 
-                return this.close();
-            }
+                    return this.close();
+                }
 
-            this.setOnceHandler(['connect'], this.onReconnect);
+                this.setOnceHandler(['connect'], this.onReconnect);
 
-            try { await this.connect(); } catch (err) { /* ignore */ }
-        },
+                try {
+                    await this.connect();
+                } catch (err) {
+                    /* ignore */
+                }
+            },
 
-        this.options.retryDelay) as any as number;
+            this.options.retryDelay,
+        ) as any as number;
     }
 
     /**
@@ -696,14 +713,21 @@ export class PgPubSub extends EventEmitter {
         uniqueKey?: string,
     ): Promise<AnyLock> {
         if (this.options.singleListener) {
-            const lock = new PgIpLock(channel, {
-                pgClient: this.pgClient,
-                logger: this.logger,
-                acquireInterval: this.options.acquireInterval,
-            }, uniqueKey);
+            const lock = new PgIpLock(
+                channel,
+                {
+                    pgClient: this.pgClient,
+                    logger: this.logger,
+                    acquireInterval: this.options.acquireInterval,
+                },
+                uniqueKey,
+            );
 
             await lock.init();
-            !uniqueKey && lock.onRelease(chan => this.listen(chan));
+
+            if (!uniqueKey) {
+                lock.onRelease(chan => this.listen(chan));
+            }
 
             return lock;
         }
@@ -718,15 +742,17 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     private async release(): Promise<void> {
-        await Promise.all(Object.keys(this.locks).map(async channel => {
-            const lock = await this.lock(channel);
+        await Promise.all(
+            Object.keys(this.locks).map(async channel => {
+                const lock = await this.lock(channel);
 
-            if (lock.isAcquired()) {
-                await lock.release();
-            }
+                if (lock.isAcquired()) {
+                    await lock.release();
+                }
 
-            delete this.locks[channel];
-        }));
+                delete this.locks[channel];
+            }),
+        );
     }
 
     /**
@@ -741,7 +767,9 @@ export class PgPubSub extends EventEmitter {
             await this.pgClient.query(
                 `SET APPLICATION_NAME TO '${this.pgClient.appName}'`,
             );
-        } catch (err) { /* ignore */ }
+        } catch (err) {
+            /* ignore */
+        }
     }
 
     /**
@@ -752,11 +780,15 @@ export class PgPubSub extends EventEmitter {
      */
     private async setProcessId(): Promise<void> {
         try {
-            const { rows: [{ pid }] } = await this.pgClient.query(`
+            const {
+                rows: [{ pid }],
+            } = await this.pgClient.query(`
                 SELECT pid FROM pg_stat_activity
                 WHERE application_name = ${literal(this.pgClient.appName)}
             `);
             this.processId = +pid;
-        } catch (err) { /* ignore */ }
+        } catch (err) {
+            /* ignore */
+        }
     }
 }
