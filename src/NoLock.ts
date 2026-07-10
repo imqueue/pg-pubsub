@@ -21,7 +21,6 @@
  */
 import { type AnyLock } from './types/index.js';
 
-// istanbul ignore next
 /**
  * Implements no lock to be used with multi-listener approach
  */
@@ -35,6 +34,13 @@ export class NoLock implements AnyLock {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public onRelease(handler: (channel: string) => void): void {
+        return;
+    }
+
+    /**
+     * Frees no resources: no lock holds none
+     */
+    public dispose(): void {
         return;
     }
 

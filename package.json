@@ -23,6 +23,7 @@
     "format": "oxfmt \"index.ts\" \"src/**/*.ts\" \"test/**/*.ts\"",
     "format:check": "oxfmt --check \"index.ts\" \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "npm run build && node --experimental-test-module-mocks --import ./test/mocks/index.js --test --test-timeout=15000 $(find test -name '*.spec.js')",
+    "test:integration": "npm run build && node --test --test-concurrency=1 --test-timeout=60000 $(find test -name '*.it.js')",
     "test-coverage": "npm run build && node --experimental-test-module-mocks --enable-source-maps --import ./test/mocks/index.js --test --experimental-test-coverage --test-timeout=15000 $(find test -name '*.spec.js')",
     "test-lcov": "npm run build && mkdir -p coverage && node --experimental-test-module-mocks --enable-source-maps --import ./test/mocks/index.js --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=coverage/lcov.info --test-timeout=15000 $(find test -name '*.spec.js'); node scripts/strip-comment-coverage.mjs coverage/lcov.info",
     "test-coverage-html": "npm run test-lcov; genhtml coverage/lcov.info --output-directory coverage/html --ignore-errors inconsistent,corrupt,format,mismatch && echo \"Coverage report: file://$(pwd)/coverage/html/index.html\"",

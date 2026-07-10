@@ -30,7 +30,12 @@ import {
 import { FakeError } from './mocks/index.js';
 
 import { Client } from 'pg';
-import { ACQUIRE_INTERVAL, PgIpLock, SHUTDOWN_TIMEOUT } from '../src/index.js';
+import {
+    ACQUIRE_INTERVAL,
+    enableGracefulShutdown,
+    PgIpLock,
+    SHUTDOWN_TIMEOUT,
+} from '../src/index.js';
 import { type PgClient } from '../src/types/index.js';
 
 after(() => {
@@ -159,6 +164,9 @@ describe('IPCLock', () => {
         });
     });
     describe('Shutdown', () => {
+        // signal handling is opt-in since 3.0.0
+        enableGracefulShutdown();
+
         let sandbox: ReturnType<typeof createSandbox>;
         let destroy: any;
         let exit: any;

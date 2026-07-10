@@ -39,6 +39,13 @@ export interface AnyLock {
     release(): Promise<void>;
 
     /**
+     * Must free all local resources held by the lock (timers, client event
+     * listeners, registry entries) without any database communication.
+     * Used when the underlying connection is already gone.
+     */
+    dispose(): void;
+
+    /**
      * Implements lock acquire verification asynchronously
      */
     isAcquired(): boolean;
