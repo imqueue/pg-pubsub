@@ -19,9 +19,9 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-export * from './AnyJson';
-export * from './AnyLogger';
-export * from './PgClient';
-export * from './PgPubSubOptions';
-export * from './events';
-export * from './AnyLock';
+export * from './AnyJson.js';
+export * from './AnyLogger.js';
+export * from './PgClient.js';
+export * from './PgPubSubOptions.js';
+export * from './events.js';
+export * from './AnyLock.js';

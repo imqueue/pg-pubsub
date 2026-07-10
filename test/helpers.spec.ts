@@ -19,72 +19,74 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import '../mocks';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { stub as makeStub } from './mocks/spy.js';
+import './mocks/index.js';
 
-import { expect } from 'chai';
-import * as sinon from 'sinon';
-import { AnyLogger, pack, unpack } from '../..';
+import { type AnyLogger, pack, unpack } from '../index.js';
 
 describe('helpers', () => {
     // mock logger
     const logger: AnyLogger = {
-        log:   (...args: any[]) => console.log(...args),
-        info:  (...args: any[]) => console.info(...args),
-        warn:  (...args: any[]) => console.warn(...args),
+        log: (...args: any[]) => console.info(...args),
+        info: (...args: any[]) => console.info(...args),
+        warn: (...args: any[]) => console.warn(...args),
         error: (...args: any[]) => console.error(...args),
     };
 
     describe('pack()', () => {
         it('should not throw, but log warn on serialization error', () => {
-            const spy = sinon.stub(logger, 'warn');
-            expect(() => pack(global as any)).to.not.throw;
+            const spy = makeStub(logger, 'warn');
+            assert.doesNotThrow(() => pack(global as any));
             pack(global as any, logger);
-            expect(spy.called).to.be.true;
+            assert.equal(spy.called, true);
             spy.restore();
         });
         it('should return serialized null value on error', () => {
-            expect(pack(global as any)).equals('null');
+            assert.equal(pack(global as any), 'null');
         });
         it('should correctly pack serializable', () => {
-            expect(pack({})).equals('{}');
-            expect(pack([])).equals('[]');
-            expect(pack({a: 1})).equals('{"a":1}');
-            expect(pack({a: '1'})).equals('{"a":"1"}');
-            expect(pack(null)).equals('null');
-            expect(pack(undefined as any)).equals('null');
-            expect(pack(true)).equals('true');
+            assert.equal(pack({}), '{}');
+            assert.equal(pack([]), '[]');
+            assert.equal(pack({ a: 1 }), '{"a":1}');
+            assert.equal(pack({ a: '1' }), '{"a":"1"}');
+            assert.equal(pack(null), 'null');
+            assert.equal(pack(undefined as any), 'null');
+            assert.equal(pack(true), 'true');
         });
         it('should be able to pretty print', () => {
             const obj = { one: { two: 'three' } };
-            expect(pack(obj, logger, true)).equals(
-                `{\n  "one": {\n    "two": "three"\n  }\n}`
+            assert.equal(
+                pack(obj, logger, true),
+                `{\n  "one": {\n    "two": "three"\n  }\n}`,
             );
         });
     });
 
     describe('unpack()', () => {
         it('should not throw, but log warn on deserialization', () => {
-            const spy = sinon.stub(logger, 'warn');
-            expect(() => unpack('unterminated string')).to.not.throw;
+            const spy = makeStub(logger, 'warn');
+            assert.doesNotThrow(() => unpack('unterminated string'));
             unpack('unterminated string', logger);
-            expect(spy.called).to.be.true;
+            assert.equal(spy.called, true);
             spy.restore();
         });
         it('should return empty object on error', () => {
-            expect(unpack('unterminated string')).deep.equals({});
+            assert.deepEqual(unpack('unterminated string'), {});
         });
         it('should properly unpack serializable', () => {
-            expect(unpack('{}')).deep.equals({});
-            expect(unpack('[]')).deep.equals([]);
-            expect(unpack('{"a":1}')).deep.equals({a: 1});
-            expect(unpack('{"a":"1"}')).deep.equals({ a: '1'});
-            expect(unpack('null')).equals(null);
-            expect(unpack('true')).equals(true);
-            expect(unpack('123.55')).equals(123.55);
+            assert.deepEqual(unpack('{}'), {});
+            assert.deepEqual(unpack('[]'), []);
+            assert.deepEqual(unpack('{"a":1}'), { a: 1 });
+            assert.deepEqual(unpack('{"a":"1"}'), { a: '1' });
+            assert.equal(unpack('null'), null);
+            assert.equal(unpack('true'), true);
+            assert.equal(unpack('123.55'), 123.55);
         });
         it('should return null on non-string or undefined input', () => {
-            expect(unpack()).to.be.null;
-            expect(unpack(global as any)).to.be.null;
+            assert.equal(unpack(), null);
+            assert.equal(unpack(global as any), null);
         });
     });
 });

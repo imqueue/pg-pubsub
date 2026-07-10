@@ -27,6 +27,11 @@ export const RETRY_DELAY = 100;
 export const RETRY_LIMIT = Infinity;
 export const IS_ONE_PROCESS = true;
 export const ACQUIRE_INTERVAL = 30000;
-export const EXECUTION_LOCK = !!+(
-    process.env.PG_PUBSUB_EXECUTION_LOCK || 0
-);
+export const EXECUTION_LOCK = !!+(process.env.PG_PUBSUB_EXECUTION_LOCK || 0);
+
+/**
+ * Time-to-live (seconds) of processed-message markers created by
+ * execution locks; expired markers are cleaned up on subsequent unique
+ * lock acquisitions
+ */
+export const UNIQUE_LOCK_TTL = 3600;

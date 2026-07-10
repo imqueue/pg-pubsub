@@ -19,16 +19,26 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { Notification } from 'pg';
+import { type Notification } from 'pg';
 import { ident, literal } from 'pg-format';
-import { clearInterval } from 'timers';
-import {
-    SCHEMA_NAME,
-    SHUTDOWN_TIMEOUT,
-} from './constants';
-import { AnyLock } from './types';
-import { PgIpLockOptions } from './types/PgIpLockOptions';
-import Timeout = NodeJS.Timeout;
+import { clearInterval } from 'node:timers';
+import { SCHEMA_NAME, SHUTDOWN_TIMEOUT, UNIQUE_LOCK_TTL } from './constants.js';
+import { type AnyLock } from './types/index.js';
+import { type PgIpLockOptions } from './types/PgIpLockOptions.js';
+type Timeout = NodeJS.Timeout;
+
+// number of attempts to bootstrap the lock schema before giving up: the
+// idempotent ddl can transiently fail when several fresh connections
+// bootstrap the same schema concurrently (postgres catalog races), and a
+// retry lets the IF NOT EXISTS clauses converge
+const SCHEMA_BOOTSTRAP_RETRIES = 5;
+const SCHEMA_BOOTSTRAP_RETRY_DELAY = 100;
+
+// per-connection, per-schema single-flight bootstrap: a client that has
+// begun (or finished) creating a lock schema must not race the ddl again
+// from a concurrent lock on the same connection. Keyed by the client so a
+// recreated client (on reconnect) bootstraps afresh.
+const schemaBootstrap = new WeakMap<object, Map<string, Promise<void>>>();
 
 /**
  * Implements manageable inter-process locking mechanism over
@@ -90,7 +100,7 @@ export class PgIpLock implements AnyLock {
 
     private static instances: PgIpLock[] = [];
     private acquired = false;
-    private notifyHandler: (message: Notification) => void;
+    private notifyHandler?: (message: Notification) => void;
     private acquireTimer?: Timeout;
 
     /**
@@ -104,9 +114,10 @@ export class PgIpLock implements AnyLock {
         public readonly options: PgIpLockOptions,
         public readonly uniqueKey?: string,
     ) {
-        this.channel = `__${PgIpLock.name}__:${
-            channel.replace(RX_LOCK_CHANNEL, '')
-        }`;
+        this.channel = `__${PgIpLock.name}__:${channel.replace(
+            RX_LOCK_CHANNEL,
+            '',
+        )}`;
         PgIpLock.instances.push(this);
     }
 
@@ -118,14 +129,7 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     public async init(): Promise<void> {
-        if (!await this.schemaExists()) {
-            try {
-                await this.createSchema();
-                await Promise.all([this.createLock(), this.createDeadlockCheck()]);
-            } catch (e) {
-                /*ignore*/
-            }
-        }
+        await this.ensureSchema();
 
         if (this.notifyHandler && !this.uniqueKey) {
             this.options.pgClient.on('notification', this.notifyHandler);
@@ -139,10 +143,12 @@ export class PgIpLock implements AnyLock {
             await this.listen();
 
             // noinspection TypeScriptValidateTypes
-            !this.acquireTimer && (this.acquireTimer = setInterval(
-                () => !this.acquired && this.acquire(),
-                this.options.acquireInterval,
-            ));
+            if (!this.acquireTimer) {
+                this.acquireTimer = setInterval(
+                    () => !this.acquired && this.acquire(),
+                    this.options.acquireInterval,
+                );
+            }
         }
     }
 
@@ -154,14 +160,13 @@ export class PgIpLock implements AnyLock {
      * @param {(channel: string) => void} handler
      */
     public onRelease(handler: (channel: string) => void): void {
-        if (!!this.notifyHandler) {
+        if (this.notifyHandler) {
             throw new TypeError(
                 'Release handler for IPC lock has been already set up!',
             );
         }
 
         this.notifyHandler = (message): void => {
-            // istanbul ignore else
             // we should skip messages from pub/sub channels and listen
             // only to those which are ours
             if (message.channel === this.channel) {
@@ -180,17 +185,20 @@ export class PgIpLock implements AnyLock {
      */
     public async acquire(): Promise<boolean> {
         try {
-            this.uniqueKey
-                ? await this.acquireUniqueLock()
-                : await this.acquireChannelLock()
-            ;
+            if (this.uniqueKey) {
+                await this.acquireUniqueLock();
+            } else {
+                await this.acquireChannelLock();
+            }
+
             this.acquired = true;
         } catch (err) {
             // will throw, because insert duplicates existing lock
             this.acquired = false;
 
-            // istanbul ignore next
-            if (!(err.code === 'P0001' && err.detail === 'LOCKED')) {
+            const pgErr = err as { code?: string; detail?: string };
+
+            if (!(pgErr.code === 'P0001' && pgErr.detail === 'LOCKED')) {
                 this.options.logger.error(err);
             }
         }
@@ -199,18 +207,69 @@ export class PgIpLock implements AnyLock {
     }
 
     /**
-     * Returns true if lock schema exists, false - otherwise
+     * Ensures the lock schema exists, bootstrapping it at most once per
+     * connection: concurrent locks on the same client await a single shared
+     * bootstrap instead of racing the (idempotent) ddl. A failed bootstrap
+     * is not memoized, so a later lock may retry it.
      *
-     * @return {Promise<boolean>}
+     * @return {Promise<void>}
      */
-    private async schemaExists(): Promise<boolean> {
-        const { rows } = await this.options.pgClient.query(`
-            SELECT schema_name
-            FROM information_schema.schemata
-            WHERE schema_name = '${this.schemaName}'
-        `);
+    private ensureSchema(): Promise<void> {
+        const client = this.options.pgClient as object;
+        let perClient = schemaBootstrap.get(client);
 
-        return (rows.length > 0);
+        if (!perClient) {
+            perClient = new Map();
+            schemaBootstrap.set(client, perClient);
+        }
+
+        let ready = perClient.get(this.schemaName);
+
+        if (!ready) {
+            ready = this.bootstrapSchema();
+            perClient.set(this.schemaName, ready);
+            ready.catch(() => perClient?.delete(this.schemaName));
+        }
+
+        return ready;
+    }
+
+    /**
+     * Creates the lock schema, table, functions and triggers. Retries on
+     * transient failures (concurrent catalog races between fresh
+     * connections bootstrapping the same schema); logs and rethrows on a
+     * persistent failure (e.g. missing ddl privileges) so it is visible.
+     *
+     * @return {Promise<void>}
+     */
+    private async bootstrapSchema(): Promise<void> {
+        let lastError: unknown;
+
+        for (let attempt = 0; attempt < SCHEMA_BOOTSTRAP_RETRIES; attempt++) {
+            try {
+                await this.createSchema();
+                await Promise.all([
+                    this.createLock(),
+                    this.createDeadlockCheck(),
+                ]);
+
+                return;
+            } catch (err) {
+                lastError = err;
+
+                await new Promise(resolve =>
+                    setTimeout(resolve, SCHEMA_BOOTSTRAP_RETRY_DELAY),
+                );
+            }
+        }
+
+        this.options.logger.error(
+            'PgIpLock: lock schema initialization failed, ' +
+                'locking may not work properly!',
+            lastError,
+        );
+
+        throw lastError;
     }
 
     /**
@@ -219,8 +278,16 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async acquireUniqueLock(): Promise<void> {
+        // processed-message markers (see onNotificationLockExec) expire
+        // by TTL; cleanup rides along in the same round-trip
         // noinspection SqlResolve
         await this.options.pgClient.query(`
+            WITH expired AS (
+                DELETE FROM ${this.schemaName}.lock
+                WHERE created_at < NOW() - MAKE_INTERVAL(
+                    secs => ${UNIQUE_LOCK_TTL}
+                )
+            )
             INSERT INTO ${this.schemaName}.lock (id, channel, app)
             VALUES (
                 ${literal(this.uniqueKey)},
@@ -261,6 +328,13 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     public async release(): Promise<void> {
+        if (!this.acquired) {
+            // nothing to release: releasing a lock this instance does not
+            // hold would delete the actual holder's record and allow
+            // duplicate processing
+            return;
+        }
+
         if (this.uniqueKey) {
             // noinspection SqlResolve
             await this.options.pgClient.query(`
@@ -268,10 +342,6 @@ export class PgIpLock implements AnyLock {
                 WHERE id=${literal(this.uniqueKey)}
             `);
         } else {
-            if (!this.acquired) {
-                return ; // nothing to release, this lock has not been acquired
-            }
-
             // noinspection SqlResolve
             await this.options.pgClient.query(`
                 DELETE FROM ${this.schemaName}.lock
@@ -298,27 +368,47 @@ export class PgIpLock implements AnyLock {
      */
     public async destroy(): Promise<void> {
         try {
-            if (this.notifyHandler) {
-                this.options.pgClient.off('notification', this.notifyHandler);
+            const queries: Promise<any>[] = [this.release()];
+
+            if (!this.uniqueKey) {
+                queries.push(this.unlisten());
             }
 
-            if (this.acquireTimer) {
-                // noinspection TypeScriptValidateTypes
-                clearInterval(this.acquireTimer);
-                delete this.acquireTimer;
-            }
+            this.dispose();
 
-            await Promise.all([this.unlisten(), this.release()]);
-
-            PgIpLock.instances.splice(
-                PgIpLock.instances.findIndex(lock => lock === this),
-                1,
-            );
+            await Promise.all(queries);
         } catch (err) {
             // do not crash - just log
-            this.options.logger && this.options.logger.error &&
-            this.options.logger.error(err);
+            this.options.logger?.error?.(err);
         }
+    }
+
+    /**
+     * Frees all local resources held by this lock (acquire timer, client
+     * notification listener, global registry entry) without touching the
+     * database. Used directly when the underlying connection is already
+     * dead (e.g. on reconnect) and as a part of destroy().
+     */
+    public dispose(): void {
+        if (this.notifyHandler) {
+            // detach only: the handler is kept, so a re-init() of the same
+            // instance re-attaches it (documented re-use behavior)
+            this.options.pgClient.off('notification', this.notifyHandler);
+        }
+
+        if (this.acquireTimer) {
+            // noinspection TypeScriptValidateTypes
+            clearInterval(this.acquireTimer);
+            delete this.acquireTimer;
+        }
+
+        const index = PgIpLock.instances.indexOf(this);
+
+        if (~index) {
+            PgIpLock.instances.splice(index, 1);
+        }
+
+        this.acquired = false;
     }
 
     /**
@@ -360,7 +450,7 @@ export class PgIpLock implements AnyLock {
         if (this.uniqueKey) {
             await this.createUniqueLock();
 
-            return ;
+            return;
         }
 
         await this.createChannelLock();
@@ -372,27 +462,23 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async createUniqueLock(): Promise<void> {
+        // idempotent, non-destructive bootstrap: never DROP the table (a
+        // concurrent bootstrap could wipe a freshly inserted lock row and
+        // lose a message). The unique schema is dedicated (schemaName has
+        // the _unique suffix), so migrating from an older shape only means
+        // adding the created_at column when it is missing.
         await this.options.pgClient.query(`
-            DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT *
-                        FROM information_schema.columns
-                        WHERE table_schema = '${ this.schemaName }'
-                            AND table_name = 'lock'
-                            AND column_name = 'id'
-                    ) THEN
-                        DROP TABLE IF EXISTS ${ this.schemaName }.lock;
-                    END IF;
-                END
-            $$
-        `);
-        await this.options.pgClient.query(`
-            CREATE TABLE IF NOT EXISTS ${ this.schemaName }."lock" (
+            CREATE TABLE IF NOT EXISTS ${this.schemaName}."lock" (
                 "id" CHARACTER VARYING NOT NULL PRIMARY KEY,
                 "channel" CHARACTER VARYING NOT NULL,
-                "app" CHARACTER VARYING NOT NULL
+                "app" CHARACTER VARYING NOT NULL,
+                "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
+        `);
+        await this.options.pgClient.query(`
+            ALTER TABLE ${this.schemaName}."lock"
+                ADD COLUMN IF NOT EXISTS "created_at"
+                    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         `);
         await this.options.pgClient.query(`
             DROP TRIGGER IF EXISTS notify_release_lock_trigger
@@ -406,23 +492,11 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async createChannelLock(): Promise<void> {
+        // the channel schema is dedicated (no _unique suffix) and only ever
+        // holds a channel-keyed table, so no destructive migration is
+        // needed - a plain idempotent create is safe under concurrency
         await this.options.pgClient.query(`
-            DO $$
-                BEGIN
-                    IF EXISTS (
-                        SELECT *
-                        FROM information_schema.columns
-                        WHERE table_schema = '${ this.schemaName }'
-                            AND table_name = 'lock'
-                            AND column_name = 'id'
-                    ) THEN
-                        DROP TABLE IF EXISTS ${ this.schemaName }.lock;
-                    END IF;
-                END
-            $$
-        `);
-        await this.options.pgClient.query(`
-            CREATE TABLE IF NOT EXISTS ${ this.schemaName }."lock" (
+            CREATE TABLE IF NOT EXISTS ${this.schemaName}."lock" (
                 "channel" CHARACTER VARYING NOT NULL PRIMARY KEY,
                 "app" CHARACTER VARYING NOT NULL
             )
@@ -445,10 +519,11 @@ export class PgIpLock implements AnyLock {
                     AFTER DELETE ON ${this.schemaName}.lock
                     DEFERRABLE INITIALLY DEFERRED
                     FOR EACH ROW EXECUTE PROCEDURE ${
-                    this.schemaName}.notify_lock()
+                        this.schemaName
+                    }.notify_lock()
             `);
-        } catch (e) {
-            /*ignore*/
+        } catch {
+            /* ignore */
         }
     }
 
@@ -490,7 +565,10 @@ let timer: any;
 async function terminate(): Promise<void> {
     let code = 0;
 
-    timer && clearTimeout(timer);
+    if (timer) {
+        clearTimeout(timer);
+    }
+
     timer = setTimeout(() => process.exit(code), SHUTDOWN_TIMEOUT);
     code = await destroyLock();
 }
@@ -499,7 +577,6 @@ async function terminate(): Promise<void> {
  * Destroys all instanced locks and returns exit code
  */
 async function destroyLock(): Promise<number> {
-    // istanbul ignore if
     if (!PgIpLock.hasInstances()) {
         return 0;
     }
@@ -509,16 +586,33 @@ async function destroyLock(): Promise<number> {
 
         return 0;
     } catch (err) {
-        // istanbul ignore next
-        ((PgIpLock.hasInstances()
+        (
+            (PgIpLock.hasInstances()
                 ? (PgIpLock as any).instances[0].options.logger
-                : console
-        ) as any)?.error(err);
+                : console) as any
+        )?.error(err);
 
         return 1;
     }
 }
 
-process.on('SIGTERM', terminate);
-process.on('SIGINT',  terminate);
-process.on('SIGABRT', terminate);
+let signalsHandled = false;
+
+// noinspection JSUnusedGlobalSymbols
+/**
+ * Registers SIGINT/SIGTERM/SIGABRT handlers performing graceful release of
+ * all instantiated locks and process exit. Idempotent. Opt-in: importing
+ * this package does not take over the process lifecycle by itself - either
+ * call this function directly or construct PgPubSub with
+ * `handleSignals: true`.
+ */
+export function enableGracefulShutdown(): void {
+    if (signalsHandled) {
+        return;
+    }
+
+    signalsHandled = true;
+    process.on('SIGTERM', terminate);
+    process.on('SIGINT', terminate);
+    process.on('SIGABRT', terminate);
+}

@@ -19,9 +19,10 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { EventEmitter } from 'events';
-import { channel } from './types';
+import { EventEmitter } from 'node:events';
+import { type channel } from './types/index.js';
 
+// oxlint-disable-next-line no-unsafe-declaration-merging
 export declare interface PgChannelEmitter {
     /**
      * Sets channel listener event handler
