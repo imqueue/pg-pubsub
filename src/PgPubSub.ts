@@ -694,14 +694,25 @@ export class PgPubSub extends EventEmitter {
             return;
         }
 
-        const lock = await this.createLock(
-            notification.channel,
-            signature(
-                notification.processId,
+        let lock: AnyLock;
+
+        try {
+            lock = await this.createLock(
                 notification.channel,
-                notification.payload,
-            ),
-        );
+                signature(
+                    notification.processId,
+                    notification.channel,
+                    notification.payload,
+                ),
+            );
+        } catch (err) {
+            // lock bootstrap failed (e.g. missing ddl privileges); it is
+            // already logged loudly - skip this message rather than raise
+            // an unhandled rejection from the notification handler
+            this.emitError(err as Error);
+
+            return;
+        }
 
         try {
             await lock.acquire();
