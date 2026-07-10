@@ -43,15 +43,15 @@
   },
   "homepage": "https://github.com/imqueue/pg-pubsub",
   "dependencies": {
-    "pg": "^8.16.3",
+    "pg": "^8.22.0",
     "pg-format": "^1.0.4"
   },
   "devDependencies": {
-    "@types/node": "^24.9.1",
-    "@types/pg": "^8.15.4",
+    "@types/node": "^24.13.3",
+    "@types/pg": "^8.20.0",
     "@types/pg-format": "^1.0.5",
-    "oxfmt": "0.57.0",
-    "oxlint": "1.72.0",
+    "oxfmt": "0.58.0",
+    "oxlint": "1.73.0",
     "typescript": "^7.0.2"
   },
   "main": "index.js",
