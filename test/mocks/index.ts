@@ -20,8 +20,13 @@
  * <support@imqueue.com> to get commercial licensing options.
  */
 import { mock } from 'node:test';
-import * as constants from './constants.js';
-import * as pg from './pg.js';
+import { Client } from './pg.js';
+
+// the constants mock re-exports the real module (export *) and overrides a
+// few timing values, so its full namespace is forwarded to the mock; a
+// dynamic import captures it without listing every constant by hand
+const constants = await import('./constants.js');
+const pg = { Client };
 
 // preloaded via `node --import ./test/mocks/index.js` so the mocks are
 // registered before any test file graph links (see package.json scripts)

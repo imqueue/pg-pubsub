@@ -19,7 +19,7 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import { type Notification } from 'pg';
 
 let id = 0;

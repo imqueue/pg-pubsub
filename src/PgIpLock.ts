@@ -21,7 +21,7 @@
  */
 import { type Notification } from 'pg';
 import { ident, literal } from 'pg-format';
-import { clearInterval } from 'timers';
+import { clearInterval } from 'node:timers';
 import { SCHEMA_NAME, SHUTDOWN_TIMEOUT, UNIQUE_LOCK_TTL } from './constants.js';
 import { type AnyLock } from './types/index.js';
 import { type PgIpLockOptions } from './types/PgIpLockOptions.js';
