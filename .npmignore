@@ -47,3 +47,9 @@ tslint.json
 bin/
 .git/
 examples/
+
+# Dev/tooling - never part of the published package
+scripts/
+.oxlintrc.json
+.oxfmtrc.json
+.agent-out/
