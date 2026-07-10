@@ -29,7 +29,7 @@ import { type AnyLogger, pack, unpack } from '../index.js';
 describe('helpers', () => {
     // mock logger
     const logger: AnyLogger = {
-        log: (...args: any[]) => console.log(...args),
+        log: (...args: any[]) => console.info(...args),
         info: (...args: any[]) => console.info(...args),
         warn: (...args: any[]) => console.warn(...args),
         error: (...args: any[]) => console.error(...args),

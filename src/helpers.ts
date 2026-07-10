@@ -20,11 +20,7 @@
  * <support@imqueue.com> to get commercial licensing options.
  */
 import { type AnyJson, type AnyLogger } from './types/index.js';
-import farmhash from 'farmhash';
-
-// farmhash is a native CJS addon whose exports cannot be statically
-// analyzed, so named ESM imports are not available for it
-const { fingerprint64 } = farmhash;
+import { hash } from 'node:crypto';
 
 /**
  * Performs JSON.stringify on a given input taking into account
@@ -107,6 +103,9 @@ export function signature(
     payload: any,
 ): string {
     const data = JSON.stringify([processId, channel, payload]);
-    const hashBigInt = fingerprint64(data);
-    return hashBigInt.toString(16);
+
+    // one-shot native hash truncated to 64 bits (16 hex chars) - same key
+    // space as the previous farmhash fingerprint64, without the native
+    // addon dependency
+    return hash('sha256', data, 'hex').slice(0, 16);
 }
