@@ -98,16 +98,26 @@ describe('PgPubSub', () => {
         });
     });
     describe('reconnect', () => {
+        // reconnect recreates the underlying client (pg clients are
+        // single-use), so connection behavior must be emulated on the mock
+        // class prototype - instance patches would be lost with the old
+        // client instance
+        const originalConnect = Client.prototype.connect;
+
+        afterEach(() => {
+            Client.prototype.connect = originalConnect;
+        });
+
         it('should support automatic reconnect', (_: unknown, done: (
             err?: Error,
         ) => void) => {
             let counter = 0;
 
             // emulate termination
-            (pgClient as any).connect = () => {
+            Client.prototype.connect = function (this: any) {
                 counter++;
-                pgClient.emit('end');
-            };
+                this.emit('end');
+            } as any;
 
             pubSub.on('error', err => {
                 assert.equal(
@@ -127,18 +137,21 @@ describe('PgPubSub', () => {
             let connectCalls = 0;
 
             // emulate termination
-            (pgClient as any).connect = () => {
+            Client.prototype.connect = function (this: any) {
                 if (connectCalls < 1) {
-                    pgClient.emit('error');
+                    this.emit('error', new Error('boom'));
                 } else {
-                    pgClient.emit('connect');
+                    this.emit('connect');
                 }
 
                 connectCalls++;
-            };
+            } as any;
 
             // test will fail if done is called more than once
             pubSub.on('connect', done);
+            pubSub.on('error', () => {
+                /* connection errors are expected here */
+            });
             pubSub.connect().catch(() => {
                 /**/
             });
@@ -149,13 +162,13 @@ describe('PgPubSub', () => {
             let counter = 0;
 
             // emulate termination
-            (pgClient as any).connect = () => {
+            Client.prototype.connect = function (this: any) {
                 counter++;
-                pgClient.emit('error');
-            };
+                this.emit('error', new Error('boom'));
+            } as any;
 
             pubSub.on('error', err => {
-                if (err) {
+                if (err && /Connect failed/.test(err.message)) {
                     assert.equal(
                         err.message,
                         `Connect failed after ${counter} retries...`,
@@ -170,9 +183,9 @@ describe('PgPubSub', () => {
         });
         it('should emit error and end if retry limit reached', async () => {
             // emulate connection failure
-            (pgClient as any).connect = async () => {
-                pgClient.emit('end');
-            };
+            Client.prototype.connect = function (this: any) {
+                this.emit('end');
+            } as any;
 
             try {
                 await pubSub.connect();
@@ -290,39 +303,59 @@ describe('PgPubSub', () => {
         });
         it(
             'should handle messages from db with acquired execution ' + 'lock',
-            (_: unknown, done: (err?: Error) => void) => {
+            async () => {
+                // replace the instance created by beforeEach: it must not
+                // stay alive holding client listeners and lock timers
+                await pubSub.destroy();
                 pubSub = new PgPubSub({
                     pgClient,
                     executionLock: true,
                     singleListener: true,
                 });
 
-                listenFunc(pubSub);
-
-                pubSub.on('message', (chanel, message) => {
-                    assert.equal(chanel, 'TestChannel');
-                    assert.equal(message, true);
-                    done();
+                const received = new Promise<void>((resolve, reject) => {
+                    pubSub.on('message', (chanel, message) => {
+                        try {
+                            assert.equal(chanel, 'TestChannel');
+                            assert.equal(message, true);
+                            resolve();
+                        } catch (err) {
+                            reject(err as Error);
+                        }
+                    });
                 });
+
+                listenFunc(pubSub);
+                await received;
             },
         );
         it(
             'should handle messages from db with acquired execution ' +
                 'lock and multiple listeners',
-            (_: unknown, done: (err?: Error) => void) => {
+            async () => {
+                // replace the instance created by beforeEach: it must not
+                // stay alive holding client listeners and lock timers
+                await pubSub.destroy();
                 pubSub = new PgPubSub({
                     pgClient,
                     executionLock: true,
                     singleListener: false,
                 });
 
-                listenFunc(pubSub);
-
-                pubSub.on('message', (chanel, message) => {
-                    assert.equal(chanel, 'TestChannel');
-                    assert.equal(message, true);
-                    done();
+                const received = new Promise<void>((resolve, reject) => {
+                    pubSub.on('message', (chanel, message) => {
+                        try {
+                            assert.equal(chanel, 'TestChannel');
+                            assert.equal(message, true);
+                            resolve();
+                        } catch (err) {
+                            reject(err as Error);
+                        }
+                    });
                 });
+
+                listenFunc(pubSub);
+                await received;
             },
         );
     });
@@ -631,17 +664,42 @@ describe('PgPubSub', () => {
     });
     describe('destroy()', () => {
         it('should properly handle destruction', async () => {
+            await pubSub.listen('DestroyMe');
+
+            const lockDestroy = makeSpy(
+                (pubSub as any).locks.DestroyMe,
+                'destroy',
+            );
             const spies = [
                 makeSpy(pubSub, 'close'),
                 makeSpy(pubSub, 'removeAllListeners'),
                 makeSpy(pubSub.channels, 'removeAllListeners'),
-                makeSpy(PgIpLock, 'destroy'),
             ];
+
             await pubSub.destroy();
+
+            assert.equal(lockDestroy.calledOnce, true);
             spies.forEach(spy => {
                 assert.equal(spy.calledOnce, true);
                 spy.restore();
             });
+        });
+
+        it('should not destroy locks owned by other instances', async () => {
+            const other = new PgPubSub({ pgClient: new Client() as any });
+
+            await other.listen('OtherChannel');
+            await pubSub.listen('MyChannel');
+
+            const otherLock = (other as any).locks.OtherChannel;
+            const otherDestroy = makeSpy(otherLock, 'destroy');
+
+            await pubSub.destroy();
+
+            assert.equal(otherDestroy.called, false);
+            assert.equal(other.isActive('OtherChannel'), true);
+
+            await other.destroy();
         });
     });
 });

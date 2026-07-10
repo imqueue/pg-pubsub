@@ -22,7 +22,7 @@
 import { type Notification } from 'pg';
 import { ident, literal } from 'pg-format';
 import { clearInterval } from 'timers';
-import { SCHEMA_NAME, SHUTDOWN_TIMEOUT } from './constants.js';
+import { SCHEMA_NAME, SHUTDOWN_TIMEOUT, UNIQUE_LOCK_TTL } from './constants.js';
 import { type AnyLock } from './types/index.js';
 import { type PgIpLockOptions } from './types/PgIpLockOptions.js';
 type Timeout = NodeJS.Timeout;
@@ -123,8 +123,15 @@ export class PgIpLock implements AnyLock {
                     this.createLock(),
                     this.createDeadlockCheck(),
                 ]);
-            } catch {
-                /* ignore */
+            } catch (err) {
+                // proceed anyway: another instance may have won the ddl
+                // race, but a persistent failure here (e.g. missing ddl
+                // privileges) breaks locking, so it must be visible
+                this.options.logger.error(
+                    'PgIpLock: lock schema initialization failed, ' +
+                        'locking may not work properly!',
+                    err,
+                );
             }
         }
 
@@ -164,7 +171,6 @@ export class PgIpLock implements AnyLock {
         }
 
         this.notifyHandler = (message): void => {
-            // istanbul ignore else
             // we should skip messages from pub/sub channels and listen
             // only to those which are ours
             if (message.channel === this.channel) {
@@ -194,7 +200,6 @@ export class PgIpLock implements AnyLock {
             // will throw, because insert duplicates existing lock
             this.acquired = false;
 
-            // istanbul ignore next
             const pgErr = err as { code?: string; detail?: string };
 
             if (!(pgErr.code === 'P0001' && pgErr.detail === 'LOCKED')) {
@@ -226,8 +231,16 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     private async acquireUniqueLock(): Promise<void> {
+        // processed-message markers (see onNotificationLockExec) expire
+        // by TTL; cleanup rides along in the same round-trip
         // noinspection SqlResolve
         await this.options.pgClient.query(`
+            WITH expired AS (
+                DELETE FROM ${this.schemaName}.lock
+                WHERE created_at < NOW() - MAKE_INTERVAL(
+                    secs => ${UNIQUE_LOCK_TTL}
+                )
+            )
             INSERT INTO ${this.schemaName}.lock (id, channel, app)
             VALUES (
                 ${literal(this.uniqueKey)},
@@ -268,6 +281,13 @@ export class PgIpLock implements AnyLock {
      * @return {Promise<void>}
      */
     public async release(): Promise<void> {
+        if (!this.acquired) {
+            // nothing to release: releasing a lock this instance does not
+            // hold would delete the actual holder's record and allow
+            // duplicate processing
+            return;
+        }
+
         if (this.uniqueKey) {
             // noinspection SqlResolve
             await this.options.pgClient.query(`
@@ -275,10 +295,6 @@ export class PgIpLock implements AnyLock {
                 WHERE id=${literal(this.uniqueKey)}
             `);
         } else {
-            if (!this.acquired) {
-                return; // nothing to release, this lock has not been acquired
-            }
-
             // noinspection SqlResolve
             await this.options.pgClient.query(`
                 DELETE FROM ${this.schemaName}.lock
@@ -305,26 +321,47 @@ export class PgIpLock implements AnyLock {
      */
     public async destroy(): Promise<void> {
         try {
-            if (this.notifyHandler) {
-                this.options.pgClient.off('notification', this.notifyHandler);
+            const queries: Promise<any>[] = [this.release()];
+
+            if (!this.uniqueKey) {
+                queries.push(this.unlisten());
             }
 
-            if (this.acquireTimer) {
-                // noinspection TypeScriptValidateTypes
-                clearInterval(this.acquireTimer);
-                delete this.acquireTimer;
-            }
+            this.dispose();
 
-            await Promise.all([this.unlisten(), this.release()]);
-
-            PgIpLock.instances.splice(
-                PgIpLock.instances.findIndex(lock => lock === this),
-                1,
-            );
+            await Promise.all(queries);
         } catch (err) {
             // do not crash - just log
             this.options.logger?.error?.(err);
         }
+    }
+
+    /**
+     * Frees all local resources held by this lock (acquire timer, client
+     * notification listener, global registry entry) without touching the
+     * database. Used directly when the underlying connection is already
+     * dead (e.g. on reconnect) and as a part of destroy().
+     */
+    public dispose(): void {
+        if (this.notifyHandler) {
+            // detach only: the handler is kept, so a re-init() of the same
+            // instance re-attaches it (documented re-use behavior)
+            this.options.pgClient.off('notification', this.notifyHandler);
+        }
+
+        if (this.acquireTimer) {
+            // noinspection TypeScriptValidateTypes
+            clearInterval(this.acquireTimer);
+            delete this.acquireTimer;
+        }
+
+        const index = PgIpLock.instances.indexOf(this);
+
+        if (~index) {
+            PgIpLock.instances.splice(index, 1);
+        }
+
+        this.acquired = false;
     }
 
     /**
@@ -387,6 +424,12 @@ export class PgIpLock implements AnyLock {
                         WHERE table_schema = '${this.schemaName}'
                             AND table_name = 'lock'
                             AND column_name = 'id'
+                    ) OR NOT EXISTS (
+                        SELECT *
+                        FROM information_schema.columns
+                        WHERE table_schema = '${this.schemaName}'
+                            AND table_name = 'lock'
+                            AND column_name = 'created_at'
                     ) THEN
                         DROP TABLE IF EXISTS ${this.schemaName}.lock;
                     END IF;
@@ -397,7 +440,8 @@ export class PgIpLock implements AnyLock {
             CREATE TABLE IF NOT EXISTS ${this.schemaName}."lock" (
                 "id" CHARACTER VARYING NOT NULL PRIMARY KEY,
                 "channel" CHARACTER VARYING NOT NULL,
-                "app" CHARACTER VARYING NOT NULL
+                "app" CHARACTER VARYING NOT NULL,
+                "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         `);
         await this.options.pgClient.query(`
@@ -509,7 +553,6 @@ async function terminate(): Promise<void> {
  * Destroys all instanced locks and returns exit code
  */
 async function destroyLock(): Promise<number> {
-    // istanbul ignore if
     if (!PgIpLock.hasInstances()) {
         return 0;
     }
@@ -519,7 +562,6 @@ async function destroyLock(): Promise<number> {
 
         return 0;
     } catch (err) {
-        // istanbul ignore next
         (
             (PgIpLock.hasInstances()
                 ? (PgIpLock as any).instances[0].options.logger
@@ -530,6 +572,23 @@ async function destroyLock(): Promise<number> {
     }
 }
 
-process.on('SIGTERM', terminate);
-process.on('SIGINT', terminate);
-process.on('SIGABRT', terminate);
+let signalsHandled = false;
+
+// noinspection JSUnusedGlobalSymbols
+/**
+ * Registers SIGINT/SIGTERM/SIGABRT handlers performing graceful release of
+ * all instantiated locks and process exit. Idempotent. Opt-in: importing
+ * this package does not take over the process lifecycle by itself - either
+ * call this function directly or construct PgPubSub with
+ * `handleSignals: true`.
+ */
+export function enableGracefulShutdown(): void {
+    if (signalsHandled) {
+        return;
+    }
+
+    signalsHandled = true;
+    process.on('SIGTERM', terminate);
+    process.on('SIGINT', terminate);
+    process.on('SIGABRT', terminate);
+}
