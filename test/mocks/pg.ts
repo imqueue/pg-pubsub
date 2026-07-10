@@ -19,8 +19,8 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { EventEmitter } from 'events';
-import { Notification } from 'pg';
+import { EventEmitter } from 'node:events';
+import { type Notification } from 'pg';
 
 let id = 0;
 
@@ -28,17 +28,14 @@ export interface ClientConfig {
     connectionString?: string;
 }
 
-// noinspection JSUnusedGlobalSymbols
 export class Client extends EventEmitter {
-    // noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
-    public constructor(options: ClientConfig) {
+    public constructor(_options: ClientConfig) {
         super();
         this.setMaxListeners(Infinity);
     }
     public connect() {
         this.emit('connect');
     }
-    // noinspection JSUnusedGlobalSymbols
     public end() {
         this.emit('end');
     }
@@ -56,9 +53,8 @@ export class Client extends EventEmitter {
             };
 
             this.emit('notification', message);
-            return ;
+            return;
         }
         return { rows: [] };
     }
 }
-

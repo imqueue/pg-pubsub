@@ -256,6 +256,35 @@ enable this feature, you can bypass `executionLock` as option and set it to
 > only notify message. If this important to you and your system will lave data
 > leaks you need to ensure that payloads are unique.
 
+## Operational Notes (since 3.0.0)
+
+- **Error handling**: always subscribe to the `'error'` event. Connection
+  errors are forwarded there; when no listener is attached they are routed
+  to the configured logger instead of crashing the process.
+- **Automatic reconnect** recreates the underlying `pg` client (pg clients
+  are single-use), so construct `PgPubSub` with connection options
+  (`connectionString` etc.) rather than a pre-made `pgClient` instance if
+  you rely on reconnects. Do not cache the `pgClient` reference across
+  reconnects.
+- **Graceful shutdown is opt-in**: importing the package no longer
+  registers process signal handlers. Construct with `handleSignals: true`
+  or call `enableGracefulShutdown()` to get SIGINT/SIGTERM/SIGABRT
+  handling with automatic locks release.
+- **Database privileges**: the first run bootstraps the lock schema
+  (`CREATE SCHEMA/TABLE/FUNCTION/TRIGGER`), which requires DDL rights. In
+  locked-down environments provision it manually beforehand (see the SQL
+  in `src/PgIpLock.ts`) - initialization failures are logged and locking
+  will not work without the schema.
+- **Delivery semantics**: LISTEN/NOTIFY is at-most-once with no backlog -
+  messages published while a subscriber is reconnecting are lost, and
+  `NOTIFY` payloads are limited to 8000 bytes (`notify()` throws a
+  `RangeError` beyond that). Per-message execution locks keep a
+  processed-marker row for one hour (`UNIQUE_LOCK_TTL`) to guarantee
+  exactly-once handling across competing listeners.
+- **Integration tests**: `PG_TEST_DSN=... npm run test:integration` runs
+  the real-PostgreSQL flow suite (also wired into CI with a postgres
+  service container).
+
 ## [Full API Docs](https://github.com/imqueue/pg-pubsub/wiki)
 
 You may read API docs on [wiki pages](https://github.com/imqueue/pg-pubsub/wiki)

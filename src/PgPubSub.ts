@@ -19,35 +19,38 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { EventEmitter } from 'events';
-import { Client, Notification } from 'pg';
+import { EventEmitter } from 'node:events';
+import { Client, type Notification } from 'pg';
 import { ident, literal } from 'pg-format';
-import { v4 as uuid } from 'uuid';
+import { randomUUID as uuid } from 'node:crypto';
 import {
-    AnyJson,
-    AnyLock,
-    AnyLogger,
-    close,
-    connect,
+    type AnyJson,
+    type AnyLock,
+    type AnyLogger,
+    type close,
+    type connect,
     DefaultOptions,
-    end,
-    error,
-    listen,
-    message,
+    type end,
+    type error,
+    type listen,
+    type message,
     NoLock,
-    notify,
+    type notify,
     pack,
-    PgClient,
+    enableGracefulShutdown,
+    type PgClient,
     PgIpLock,
-    PgPubSubOptions,
-    reconnect,
-    RX_LOCK_CHANNEL, signature,
-    unlisten,
+    type PgPubSubOptions,
+    type reconnect,
+    RX_LOCK_CHANNEL,
+    signature,
+    type unlisten,
     unpack,
-} from '.';
-import { PgChannelEmitter } from './PgChannelEmitter';
+} from './index.js';
+import { PgChannelEmitter } from './PgChannelEmitter.js';
 
 // PgPubSub Events
+// oxlint-disable-next-line no-unsafe-declaration-merging
 export declare interface PgPubSub {
     /**
      * Sets `'end'` event handler
@@ -294,15 +297,34 @@ export declare interface PgPubSub {
  * handling, so while you close, another running copy may handle next
  * messages...
  */
-export class PgPubSub extends EventEmitter {
+/**
+ * Maximum byte length of a NOTIFY payload postgres accepts (with default
+ * server configuration)
+ */
+const MAX_PAYLOAD_LENGTH = 8000;
 
-    public readonly pgClient: PgClient;
+export class PgPubSub extends EventEmitter {
     public readonly options: PgPubSubOptions;
     public readonly channels: PgChannelEmitter = new PgChannelEmitter();
 
+    private client: PgClient;
     private locks: { [channel: string]: AnyLock } = {};
+    private reListenChannels?: string[];
+    private reconnectTimer?: NodeJS.Timeout;
+    private destroyed = false;
     private retry = 0;
-    private processId: number;
+    private processId?: number;
+
+    /**
+     * Underlying postgres client. The instance may be replaced during
+     * automatic reconnect (pg clients are single-use), so do not cache
+     * this reference across reconnects.
+     *
+     * @return {PgClient}
+     */
+    public get pgClient(): PgClient {
+        return this.client;
+    }
 
     /**
      * @constructor
@@ -316,20 +338,49 @@ export class PgPubSub extends EventEmitter {
         super();
 
         this.options = { ...DefaultOptions, ...options };
-        this.pgClient = (this.options.pgClient || new Client(this.options)) as
-            PgClient;
-
-        this.pgClient.on('end', () => this.emit('end'));
-        this.pgClient.on('error', () => this.emit('error'));
 
         this.onNotification = this.options.executionLock
             ? this.onNotificationLockExec.bind(this)
-            : this.onNotification.bind(this)
-        ;
+            : this.onNotification.bind(this);
         this.reconnect = this.reconnect.bind(this);
         this.onReconnect = this.onReconnect.bind(this);
 
-        this.pgClient.on('notification', this.onNotification);
+        this.client = (this.options.pgClient ||
+            new Client(this.options)) as PgClient;
+        this.attachClientHandlers();
+
+        if (this.options.handleSignals) {
+            enableGracefulShutdown();
+        }
+    }
+
+    /**
+     * Wires base handlers to the current underlying pg client
+     *
+     * @access private
+     * @return {void}
+     */
+    private attachClientHandlers(): void {
+        this.client.on('end', () => this.emit('end'));
+        this.client.on('error', (err: Error) => this.emitError(err));
+        this.client.on('notification', this.onNotification);
+    }
+
+    /**
+     * Emits 'error' if anyone listens, otherwise logs it: an unhandled
+     * 'error' event would crash the process, and connection errors always
+     * deserve a trace
+     *
+     * @access private
+     * @param {Error} err - error to propagate
+     * @return {void}
+     */
+    private emitError(err: Error): void {
+        if (this.listenerCount('error') > 0) {
+            this.emit('error', err);
+        } else {
+            this.logger.error(err);
+        }
     }
 
     /**
@@ -372,6 +423,13 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async close(): Promise<void> {
+        if (this.reconnectTimer) {
+            // a pending reconnect would re-create the client and
+            // re-subscribe channels after this instance is closed
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = undefined;
+        }
+
         this.pgClient.off('end', this.reconnect);
         this.pgClient.off('error', this.reconnect);
         await this.pgClient.end();
@@ -388,16 +446,15 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async listen(channel: string): Promise<void> {
-        // istanbul ignore if
         if (this.options.executionLock) {
             await this.pgClient.query(`LISTEN ${ident(channel)}`);
             this.emit('listen', channel);
-            return ;
+            return;
         }
 
         const lock = await this.lock(channel);
         const acquired = await lock.acquire();
-        // istanbul ignore else
+        //  ignore else
         if (acquired) {
             await this.pgClient.query(`LISTEN ${ident(channel)}`);
             this.emit('listen', channel);
@@ -444,8 +501,17 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async notify(channel: string, payload: AnyJson): Promise<void> {
+        const packed = pack(payload, this.logger);
+
+        if (Buffer.byteLength(packed, 'utf8') > MAX_PAYLOAD_LENGTH) {
+            throw new RangeError(
+                `NOTIFY payload for channel '${channel}' exceeds the ` +
+                    `postgres limit of ${MAX_PAYLOAD_LENGTH} bytes`,
+            );
+        }
+
         await this.pgClient.query(
-            `NOTIFY ${ident(channel)}, ${literal(pack(payload, this.logger))}`,
+            `NOTIFY ${ident(channel)}, ${literal(packed)}`,
         );
 
         this.emit('notify', channel, payload);
@@ -469,8 +535,8 @@ export class PgPubSub extends EventEmitter {
      * @return {string[]}
      */
     public inactiveChannels(): string[] {
-        return Object.keys(this.locks).filter(channel =>
-            !this.locks[channel].isAcquired(),
+        return Object.keys(this.locks).filter(
+            channel => !this.locks[channel].isAcquired(),
         );
     }
 
@@ -511,7 +577,19 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     public async destroy(): Promise<void> {
-        await Promise.all([this.close(), PgIpLock.destroy()]);
+        this.destroyed = true;
+
+        // destroy only locks owned by this instance: a process may run
+        // several PgPubSub instances and a static sweep would kill locks
+        // belonging to the others
+        await Promise.all(
+            Object.keys(this.locks).map(channel =>
+                this.locks[channel].destroy(),
+            ),
+        );
+        this.locks = {};
+
+        await this.close();
         this.channels.removeAllListeners();
         this.removeAllListeners();
     }
@@ -550,9 +628,12 @@ export class PgPubSub extends EventEmitter {
         event: string,
         handler: (...args: any[]) => any,
     ): void {
-        this.pgClient.listeners(event).forEach(listener =>
-            listener === handler && this.pgClient.off(event, handler),
-        );
+        this.pgClient
+            .listeners(event)
+            .forEach(
+                listener =>
+                    listener === handler && this.pgClient.off(event, handler),
+            );
     }
 
     /**
@@ -563,18 +644,21 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     private async onNotification(notification: Notification): Promise<void> {
-        const lock = await this.lock(notification.channel);
-        const skip = RX_LOCK_CHANNEL.test(notification.channel) || (
-            this.options.filtered && this.processId === notification.processId
-        );
+        const skip =
+            this.destroyed ||
+            RX_LOCK_CHANNEL.test(notification.channel) ||
+            (this.options.filtered &&
+                this.processId === notification.processId);
 
         if (skip) {
             // as we use the same connection with locks mechanism
             // we should avoid pub/sub client to parse lock channels data
             // and also filter same-notify-channel messages if filtered option
             // is set to true
-            return ;
+            return;
         }
+
+        const lock = await this.lock(notification.channel);
 
         if (this.options.singleListener && !lock.isAcquired()) {
             return; // we are not really a listener
@@ -596,36 +680,59 @@ export class PgPubSub extends EventEmitter {
     private async onNotificationLockExec(
         notification: Notification,
     ): Promise<void> {
-        const skip = RX_LOCK_CHANNEL.test(notification.channel) || (
-            this.options.filtered && this.processId === notification.processId
-        );
+        const skip =
+            this.destroyed ||
+            RX_LOCK_CHANNEL.test(notification.channel) ||
+            (this.options.filtered &&
+                this.processId === notification.processId);
 
         if (skip) {
             // as we use the same connection with locks mechanism
             // we should avoid pub/sub client to parse lock channels data
             // and also filter same-notify-channel messages if filtered option
             // is set to true
-            return ;
+            return;
         }
 
-        const lock = await this.createLock(notification.channel, signature(
-            notification.processId,
-            notification.channel,
-            notification.payload,
-        ));
+        let lock: AnyLock;
 
-        await lock.acquire();
+        try {
+            lock = await this.createLock(
+                notification.channel,
+                signature(
+                    notification.processId,
+                    notification.channel,
+                    notification.payload,
+                ),
+            );
+        } catch (err) {
+            // lock bootstrap failed (e.g. missing ddl privileges); it is
+            // already logged loudly - skip this message rather than raise
+            // an unhandled rejection from the notification handler
+            this.emitError(err as Error);
 
-        // istanbul ignore if
-        if (this.options.singleListener && !lock.isAcquired()) {
-            return; // we are not really a listener
+            return;
         }
 
-        const payload = unpack(notification.payload);
+        try {
+            await lock.acquire();
 
-        this.emit('message', notification.channel, payload);
-        this.channels.emit(notification.channel, payload);
-        await lock.release();
+            if (this.options.singleListener && !lock.isAcquired()) {
+                return; // we are not really a listener
+            }
+
+            const payload = unpack(notification.payload);
+
+            this.emit('message', notification.channel, payload);
+            this.channels.emit(notification.channel, payload);
+        } finally {
+            // free local resources only: the lock record must stay in the
+            // database as a processed-message marker, otherwise a slower
+            // competing listener would re-insert it and process the same
+            // message again. Stale markers are cleaned up by TTL on
+            // subsequent unique lock acquisitions.
+            lock.dispose();
+        }
     }
 
     /**
@@ -635,9 +742,11 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     private async onReconnect(): Promise<void> {
-        await Promise.all(Object.keys(this.locks).map(channel =>
-            this.listen(channel),
-        ));
+        const channels = this.reListenChannels ?? Object.keys(this.locks);
+
+        this.reListenChannels = undefined;
+
+        await Promise.all(channels.map(channel => this.listen(channel)));
 
         this.emit('reconnect', this.retry);
         this.retry = 0;
@@ -651,21 +760,68 @@ export class PgPubSub extends EventEmitter {
      * @return {number}
      */
     private reconnect(): number {
-        return setTimeout(async () => {
-            if (this.options.retryLimit <= ++this.retry) {
-                this.emit('error', new Error(
-                    `Connect failed after ${this.retry} retries...`,
-                ));
+        if (this.reconnectTimer) {
+            // a single connection loss fires both 'error' and 'end':
+            // arming two competing reconnects would race two client
+            // recreations against each other
+            return this.reconnectTimer as any as number;
+        }
 
-                return this.close();
-            }
+        this.reconnectTimer = setTimeout(
+            async () => {
+                this.reconnectTimer = undefined;
 
-            this.setOnceHandler(['connect'], this.onReconnect);
+                if (this.options.retryLimit <= ++this.retry) {
+                    this.emitError(
+                        new Error(
+                            `Connect failed after ${this.retry} retries...`,
+                        ),
+                    );
 
-            try { await this.connect(); } catch (err) { /* ignore */ }
-        },
+                    return this.close();
+                }
 
-        this.options.retryDelay) as any as number;
+                this.recreateClient();
+                this.setOnceHandler(['connect'], this.onReconnect);
+
+                try {
+                    await this.connect();
+                } catch {
+                    /* ignore */
+                }
+            },
+
+            this.options.retryDelay,
+        );
+
+        return this.reconnectTimer as any as number;
+    }
+
+    /**
+     * Replaces the underlying pg client with a fresh one: pg clients are
+     * single-use and cannot re-connect after end() or a fatal error. All
+     * locks bound to the dead client are disposed locally (no database
+     * communication is possible through it anyway); channels stay in the
+     * locks registry keys through onReconnect() re-listen.
+     *
+     * @access private
+     * @return {void}
+     */
+    private recreateClient(): void {
+        const channels = Object.keys(this.locks);
+
+        for (const channel of channels) {
+            this.locks[channel].dispose();
+            delete this.locks[channel];
+        }
+
+        this.client.removeAllListeners();
+        this.client = new Client(this.options) as PgClient;
+        this.attachClientHandlers();
+
+        // preserve known channels, so onReconnect() re-creates their locks
+        // against the new client
+        this.reListenChannels = channels;
     }
 
     /**
@@ -678,7 +834,17 @@ export class PgPubSub extends EventEmitter {
      */
     private async lock(channel: string): Promise<AnyLock> {
         if (!this.locks[channel]) {
-            this.locks[channel] = await this.createLock(channel);
+            const lock = await this.createLock(channel);
+
+            if (this.destroyed) {
+                // destroy() raced this creation: free local resources and
+                // do not register the lock, nobody would clean it up
+                lock.dispose();
+
+                return lock;
+            }
+
+            this.locks[channel] = lock;
         }
 
         return this.locks[channel];
@@ -696,14 +862,21 @@ export class PgPubSub extends EventEmitter {
         uniqueKey?: string,
     ): Promise<AnyLock> {
         if (this.options.singleListener) {
-            const lock = new PgIpLock(channel, {
-                pgClient: this.pgClient,
-                logger: this.logger,
-                acquireInterval: this.options.acquireInterval,
-            }, uniqueKey);
+            const lock = new PgIpLock(
+                channel,
+                {
+                    pgClient: this.pgClient,
+                    logger: this.logger,
+                    acquireInterval: this.options.acquireInterval,
+                },
+                uniqueKey,
+            );
 
             await lock.init();
-            !uniqueKey && lock.onRelease(chan => this.listen(chan));
+
+            if (!uniqueKey) {
+                lock.onRelease(chan => this.listen(chan));
+            }
 
             return lock;
         }
@@ -718,15 +891,21 @@ export class PgPubSub extends EventEmitter {
      * @return {Promise<void>}
      */
     private async release(): Promise<void> {
-        await Promise.all(Object.keys(this.locks).map(async channel => {
-            const lock = await this.lock(channel);
+        await Promise.all(
+            Object.keys(this.locks).map(async channel => {
+                const lock = await this.lock(channel);
 
-            if (lock.isAcquired()) {
-                await lock.release();
-            }
+                if (lock.isAcquired()) {
+                    await lock.release();
+                }
 
-            delete this.locks[channel];
-        }));
+                // the lock leaves the registry, so its local resources
+                // (acquire timer, notification listener) must be freed -
+                // otherwise they would keep the process alive forever
+                lock.dispose();
+                delete this.locks[channel];
+            }),
+        );
     }
 
     /**
@@ -741,7 +920,9 @@ export class PgPubSub extends EventEmitter {
             await this.pgClient.query(
                 `SET APPLICATION_NAME TO '${this.pgClient.appName}'`,
             );
-        } catch (err) { /* ignore */ }
+        } catch {
+            /* ignore */
+        }
     }
 
     /**
@@ -752,11 +933,15 @@ export class PgPubSub extends EventEmitter {
      */
     private async setProcessId(): Promise<void> {
         try {
-            const { rows: [{ pid }] } = await this.pgClient.query(`
+            const {
+                rows: [{ pid }],
+            } = await this.pgClient.query(`
                 SELECT pid FROM pg_stat_activity
                 WHERE application_name = ${literal(this.pgClient.appName)}
             `);
             this.processId = +pid;
-        } catch (err) { /* ignore */ }
+        } catch {
+            /* ignore */
+        }
     }
 }

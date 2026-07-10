@@ -19,14 +19,14 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { Client, ClientConfig } from 'pg';
+import { Client, type ClientConfig } from 'pg';
 import {
     ACQUIRE_INTERVAL,
     EXECUTION_LOCK,
     IS_ONE_PROCESS,
     RETRY_DELAY,
     RETRY_LIMIT,
-} from '../constants';
+} from '../constants.js';
 
 /**
  * Options accepted as option argument of PgPubSub constructor.
@@ -102,6 +102,15 @@ export interface PgPubSubOptions extends ClientConfig {
      * @type {boolean}
      */
     executionLock: boolean;
+
+    /**
+     * If set to true, the package registers SIGINT/SIGTERM/SIGABRT handlers
+     * performing graceful locks release and process exit. Default is false:
+     * a library must not take over process lifecycle unless asked to.
+     *
+     * @type {boolean}
+     */
+    handleSignals: boolean;
 }
 
 /**
@@ -117,4 +126,5 @@ export const DefaultOptions: PgPubSubOptions = Object.freeze({
     acquireInterval: ACQUIRE_INTERVAL,
     filtered: false,
     executionLock: EXECUTION_LOCK,
+    handleSignals: false,
 });

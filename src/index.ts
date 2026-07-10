@@ -19,9 +19,9 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-export * from './helpers';
-export * from './PgPubSub';
-export * from './PgIpLock';
-export * from './NoLock';
-export * from './types';
-export * from './constants';
+export * from './helpers.js';
+export * from './PgPubSub.js';
+export * from './PgIpLock.js';
+export * from './NoLock.js';
+export * from './types/index.js';
+export * from './constants.js';

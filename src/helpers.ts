@@ -19,8 +19,8 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { AnyJson, AnyLogger } from './types';
-import { fingerprint64 } from 'farmhash';
+import { type AnyJson, type AnyLogger } from './types/index.js';
+import { hash } from 'node:crypto';
 
 /**
  * Performs JSON.stringify on a given input taking into account
@@ -32,9 +32,7 @@ import { fingerprint64 } from 'farmhash';
  * @return {string}
  */
 function stringify(input: AnyJson, pretty?: boolean): string {
-    return pretty
-        ? JSON.stringify(input, null, 2)
-        : JSON.stringify(input);
+    return pretty ? JSON.stringify(input, null, 2) : JSON.stringify(input);
 }
 
 /**
@@ -105,6 +103,9 @@ export function signature(
     payload: any,
 ): string {
     const data = JSON.stringify([processId, channel, payload]);
-    const hashBigInt = fingerprint64(data);
-    return hashBigInt.toString(16);
+
+    // one-shot native hash truncated to 64 bits (16 hex chars) - same key
+    // space as the previous farmhash fingerprint64, without the native
+    // addon dependency
+    return hash('sha256', data, 'hex').slice(0, 16);
 }

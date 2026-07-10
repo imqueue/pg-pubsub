@@ -19,15 +19,11 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-// noinspection JSUnusedGlobalSymbols
-export const SCHEMA_NAME      = 'pgip_lock';
-// noinspection JSUnusedGlobalSymbols
+// Re-export the real constants and shorten the timing-sensitive ones so
+// specs run fast. Explicit exports below override the star re-export.
+export * from '../../src/constants.js';
+
 export const SHUTDOWN_TIMEOUT = 10;
-// noinspection JSUnusedGlobalSymbols
-export const RETRY_DELAY      = 10;
-// noinspection JSUnusedGlobalSymbols
-export const RETRY_LIMIT      = 3;
-// noinspection JSUnusedGlobalSymbols
-export const IS_ONE_PROCESS   = true;
-// noinspection JSUnusedGlobalSymbols
+export const RETRY_DELAY = 10;
+export const RETRY_LIMIT = 3;
 export const ACQUIRE_INTERVAL = 10;
