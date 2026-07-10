@@ -22,7 +22,7 @@
 import { EventEmitter } from 'events';
 import { Client, type Notification } from 'pg';
 import { ident, literal } from 'pg-format';
-import { v4 as uuid } from 'uuid';
+import { randomUUID as uuid } from 'node:crypto';
 import {
     type AnyJson,
     type AnyLock,
@@ -676,7 +676,7 @@ export class PgPubSub extends EventEmitter {
 
                 try {
                     await this.connect();
-                } catch (err) {
+                } catch {
                     /* ignore */
                 }
             },
@@ -767,7 +767,7 @@ export class PgPubSub extends EventEmitter {
             await this.pgClient.query(
                 `SET APPLICATION_NAME TO '${this.pgClient.appName}'`,
             );
-        } catch (err) {
+        } catch {
             /* ignore */
         }
     }
@@ -787,7 +787,7 @@ export class PgPubSub extends EventEmitter {
                 WHERE application_name = ${literal(this.pgClient.appName)}
             `);
             this.processId = +pid;
-        } catch (err) {
+        } catch {
             /* ignore */
         }
     }

@@ -31,7 +31,7 @@ export interface ClientConfig {
 // noinspection JSUnusedGlobalSymbols
 export class Client extends EventEmitter {
     // noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
-    public constructor(options: ClientConfig) {
+    public constructor(_options: ClientConfig) {
         super();
         this.setMaxListeners(Infinity);
     }

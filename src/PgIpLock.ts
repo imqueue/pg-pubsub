@@ -123,8 +123,8 @@ export class PgIpLock implements AnyLock {
                     this.createLock(),
                     this.createDeadlockCheck(),
                 ]);
-            } catch (e) {
-                /*ignore*/
+            } catch {
+                /* ignore */
             }
         }
 
@@ -454,8 +454,8 @@ export class PgIpLock implements AnyLock {
                         this.schemaName
                     }.notify_lock()
             `);
-        } catch (e) {
-            /*ignore*/
+        } catch {
+            /* ignore */
         }
     }
 

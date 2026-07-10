@@ -26,7 +26,6 @@ import {
     spy as makeSpy,
     stub as makeStub,
     spyAssert,
-    type SpyApi,
 } from './mocks/spy.js';
 import { FakeError } from './mocks/index.js';
 
@@ -65,14 +64,10 @@ describe('IPCLock', () => {
         });
     });
     describe('init()', () => {
-        let spy: SpyApi[];
-        let spyListen: SpyApi;
-
         beforeEach(() => {
-            spy = ['createSchema', 'createLock', 'createDeadlockCheck'].map(
+            ['createSchema', 'createLock', 'createDeadlockCheck', 'listen'].map(
                 method => makeSpy(lock as any, method),
             );
-            spyListen = makeSpy(lock as any, 'listen');
         });
 
         it('should re-apply notify handler on re-use', async () => {
