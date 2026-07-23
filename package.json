@@ -43,7 +43,7 @@
   "bugs": {
     "url": "https://github.com/imqueue/pg-pubsub/issues"
   },
-  "homepage": "https://github.com/imqueue/pg-pubsub",
+  "homepage": "https://imqueue.org/",
   "dependencies": {
     "pg": "^8.22.0",
     "pg-format": "^1.0.4"
