@@ -447,8 +447,7 @@ export class PgPubSub extends EventEmitter {
      */
     public async listen(channel: string): Promise<void> {
         if (this.options.executionLock) {
-            await this.pgClient.query(`LISTEN ${ident(channel)}`);
-            this.emit('listen', channel);
+            await this.subscribe(channel);
             return;
         }
 
@@ -456,8 +455,7 @@ export class PgPubSub extends EventEmitter {
         const acquired = await lock.acquire();
 
         if (acquired) {
-            await this.pgClient.query(`LISTEN ${ident(channel)}`);
-            this.emit('listen', channel);
+            await this.subscribe(channel);
 
             return;
         }
@@ -838,6 +836,24 @@ export class PgPubSub extends EventEmitter {
     }
 
     /**
+     * Issues the actual `LISTEN` on a channel this process is already
+     * entitled to listen, and announces it.
+     *
+     * Kept apart from listen() because a late lock takeover must not run
+     * listen() again: re-acquiring a lock we already hold fails the deadlock
+     * check (it sees our own live connection as the current holder) and would
+     * skip the subscription it was meant to complete.
+     *
+     * @access private
+     * @param {string} channel
+     * @return {Promise<void>}
+     */
+    private async subscribe(channel: string): Promise<void> {
+        await this.pgClient.query(`LISTEN ${ident(channel)}`);
+        this.emit('listen', channel);
+    }
+
+    /**
      * Instantiates and returns process lock for a given channel or returns
      * existing one
      *
@@ -889,6 +905,9 @@ export class PgPubSub extends EventEmitter {
 
             if (!uniqueKey) {
                 lock.onRelease(chan => this.listen(chan));
+                lock.onAcquire(chan =>
+                    this.subscribe(chan).catch(err => this.logger.error(err)),
+                );
             }
 
             return lock;
