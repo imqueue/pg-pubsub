@@ -102,6 +102,7 @@ export class PgIpLock implements AnyLock {
     private acquired = false;
     private lockedReported = false;
     private notifyHandler?: (message: Notification) => void;
+    private acquireHandler?: (channel: string) => void;
     private acquireTimer?: Timeout;
 
     /**
@@ -146,7 +147,7 @@ export class PgIpLock implements AnyLock {
             // noinspection TypeScriptValidateTypes
             if (!this.acquireTimer) {
                 this.acquireTimer = setInterval(
-                    () => !this.acquired && this.acquire(),
+                    () => this.retryAcquire(),
                     this.options.acquireInterval,
                 );
             }
@@ -176,6 +177,31 @@ export class PgIpLock implements AnyLock {
         };
 
         this.options.pgClient.on('notification', this.notifyHandler);
+    }
+
+    /**
+     * This would provide a late acquire handler which will be called once the
+     * lock is taken over by the retry timer, with the channel name bypassed
+     * to a given handler.
+     *
+     * Acquiring the lock is only ever half of the caller's job - the other
+     * half (issuing `LISTEN`, in the PgPubSub case) happens right after
+     * acquire() returns true. When the first attempt loses to another
+     * process, that caller is long gone by the time the timer wins the lock,
+     * so without this handler the second half never runs and the lock is held
+     * by a process that does nothing with it - forever, since a held lock
+     * keeps every other process away too.
+     *
+     * @param {(channel: string) => void} handler
+     */
+    public onAcquire(handler: (channel: string) => void): void {
+        if (this.acquireHandler) {
+            throw new TypeError(
+                'Acquire handler for IPC lock has been already set up!',
+            );
+        }
+
+        this.acquireHandler = handler;
     }
 
     /**
@@ -227,6 +253,31 @@ export class PgIpLock implements AnyLock {
         }
 
         return this.acquired;
+    }
+
+    /**
+     * Timer-driven acquire attempt. Notifies the acquire handler on success,
+     * which is what makes a late takeover complete instead of leaving the
+     * lock held but unused.
+     *
+     * The notification lives here rather than inside acquire() on purpose:
+     * acquire() is also called directly by whoever set the handler up, and
+     * notifying from there would call that caller back into itself.
+     *
+     * @return {Promise<void>}
+     */
+    private async retryAcquire(): Promise<void> {
+        if (this.acquired) {
+            return;
+        }
+
+        try {
+            if (await this.acquire()) {
+                this.acquireHandler?.(this.publicChannel);
+            }
+        } catch (err) {
+            this.options.logger.error(err);
+        }
     }
 
     /**

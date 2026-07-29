@@ -61,4 +61,14 @@ export interface AnyLock {
      * @param {(channel: string) => void} handler
      */
     onRelease(handler: (channel: string) => void): void;
+
+    /**
+     * Implements late lock acquire handler upset. The handler is called when
+     * the lock gets taken over by a retry, long after the acquire() caller
+     * has given up - which makes it the only chance for that caller to finish
+     * whatever the lock was being acquired for.
+     *
+     * @param {(channel: string) => void} handler
+     */
+    onAcquire(handler: (channel: string) => void): void;
 }

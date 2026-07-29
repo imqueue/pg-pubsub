@@ -163,6 +163,42 @@ describe('IPCLock', () => {
             assert.equal(spy.calledOnce, true);
         });
     });
+    describe('onAcquire()', () => {
+        it('should not allow set handler twice', () => {
+            lock.onAcquire(() => {
+                /**/
+            });
+            assert.throws(() =>
+                lock.onAcquire(() => {
+                    /**/
+                }),
+            );
+        });
+        it('should call the handler when the retry timer takes over', async () => {
+            const spy = makeSpy();
+            lock.onAcquire(spy);
+            await lock.init();
+            await new Promise(res => setTimeout(res, ACQUIRE_INTERVAL * 2 + 5));
+
+            assert.equal(spy.called, true);
+            assert.deepEqual(spy.getCalls()[0].args, ['LockTest']);
+        });
+        it('should not call the handler on a direct acquire', async () => {
+            const spy = makeSpy();
+            lock.onAcquire(spy);
+
+            assert.equal(await lock.acquire(), true);
+            assert.equal(spy.called, false);
+        });
+        it('should call the handler only once per takeover', async () => {
+            const spy = makeSpy();
+            lock.onAcquire(spy);
+            await lock.init();
+            await new Promise(res => setTimeout(res, ACQUIRE_INTERVAL * 4 + 5));
+
+            assert.equal(spy.calledOnce, true);
+        });
+    });
     describe('Shutdown', () => {
         // signal handling is opt-in since 3.0.0
         enableGracefulShutdown();
