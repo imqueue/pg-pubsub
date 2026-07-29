@@ -454,11 +454,19 @@ export class PgPubSub extends EventEmitter {
 
         const lock = await this.lock(channel);
         const acquired = await lock.acquire();
-        //  ignore else
+
         if (acquired) {
             await this.pgClient.query(`LISTEN ${ident(channel)}`);
             this.emit('listen', channel);
+
+            return;
         }
+
+        // not an error under singleListener - another process owns this
+        // channel. No log here on purpose: listen() is retried (timer,
+        // onRelease, reconnect) and would spam. PgIpLock.acquire() reports
+        // the same fact once per state change, and PgCache summarises the
+        // resulting coverage as `listening N/M channels`.
     }
 
     /**
@@ -745,6 +753,11 @@ export class PgPubSub extends EventEmitter {
         const channels = this.reListenChannels ?? Object.keys(this.locks);
 
         this.reListenChannels = undefined;
+
+        this.logger.info(
+            `PgPubSub: reconnected after ${this.retry} retry(-ies), ` +
+                `re-subscribing ${channels.length} channel(s)`,
+        );
 
         await Promise.all(channels.map(channel => this.listen(channel)));
 
