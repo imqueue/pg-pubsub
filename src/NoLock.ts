@@ -37,6 +37,12 @@ export class NoLock implements AnyLock {
         return;
     }
 
+    // no lock is never taken over: acquire() always succeeds on the spot
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    public onAcquire(handler: (channel: string) => void): void {
+        return;
+    }
+
     /**
      * Frees no resources: no lock holds none
      */
