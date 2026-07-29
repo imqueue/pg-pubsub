@@ -100,6 +100,7 @@ export class PgIpLock implements AnyLock {
 
     private static instances: PgIpLock[] = [];
     private acquired = false;
+    private lockedReported = false;
     private notifyHandler?: (message: Notification) => void;
     private acquireTimer?: Timeout;
 
@@ -192,18 +193,49 @@ export class PgIpLock implements AnyLock {
             }
 
             this.acquired = true;
+
+            if (this.lockedReported) {
+                // state change: we were locked out and just took over, which
+                // means the previous holder's connection is gone
+                this.lockedReported = false;
+                this.options.logger.info(
+                    `PgIpLock: acquired '${this.publicChannel}' - the ` +
+                        'previous holder is gone',
+                );
+            }
         } catch (err) {
             // will throw, because insert duplicates existing lock
             this.acquired = false;
 
             const pgErr = err as { code?: string; detail?: string };
 
-            if (!(pgErr.code === 'P0001' && pgErr.detail === 'LOCKED')) {
+            if (pgErr.code === 'P0001' && pgErr.detail === 'LOCKED') {
+                // expected under singleListener, but the transition is worth
+                // one line: "someone else owns it" must be distinguishable
+                // from "everything is fine"
+                if (!this.lockedReported) {
+                    this.lockedReported = true;
+                    this.options.logger.info(
+                        `PgIpLock: '${this.publicChannel}' is held by ` +
+                            'another process, retrying every ' +
+                            `${this.options.acquireInterval}ms`,
+                    );
+                }
+            } else {
                 this.options.logger.error(err);
             }
         }
 
         return this.acquired;
+    }
+
+    /**
+     * Channel name without the internal lock prefix, for log messages
+     *
+     * @return {string}
+     */
+    private get publicChannel(): string {
+        return this.channel.replace(RX_LOCK_CHANNEL, '');
     }
 
     /**
