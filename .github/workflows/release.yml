@@ -1,0 +1,44 @@
+# Creates the GitHub Release page for a version tag.
+#
+# The notes are composed by the shared workflow in
+# imqueue/.github/.github/workflows/release.yml: a CHANGELOG.md section for the exact
+# version when one exists, otherwise GitHub's PR-derived notes, always followed by a
+# standard About + links block.
+#
+# This fires on `git push --follow-tags` after `npm version`, so it needs no change to
+# the existing release habit. workflow_dispatch is for backfilling a tag that already
+# exists, and defaults to a dry run so the notes can be read before anything is created.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to compose notes for, e.g. v1.2.3'
+        required: true
+        type: string
+      dry-run:
+        description: 'Only print the notes; do not create or update the release'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  release:
+    uses: imqueue/.github/.github/workflows/release.yml@master
+    # A called workflow can hold no more permission than its caller grants, so this is
+    # required even though the shared workflow declares it too.
+    permissions:
+      contents: write
+    with:
+      package: '@imqueue/pg-pubsub'
+      tag: ${{ inputs.tag || '' }}
+      dry-run: ${{ inputs.dry-run || false }}
+      blurb: >-
+        `@imqueue/pg-pubsub` provides reliable PostgreSQL `LISTEN`/`NOTIFY` with inter-process lock
+        support: a single logical subscriber across many processes, so a notification is handled
+        once per cluster rather than once per process, with automatic reconnection. Usable
+        independently of the rest of @imqueue.
