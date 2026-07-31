@@ -224,66 +224,59 @@ const MAX_PAYLOAD_LENGTH = 8000;
  * Implements LISTEN/NOTIFY client for PostgreSQL connections.
  *
  * It is a basic public interface of this library, so the end-user is going
- * to work with this class directly to solve his/her tasks.
+ * to work with this class directly to solve his/her tasks. Construct it with
+ * {@link PgPubSubOptions}, subscribe channels once connected, then read messages
+ * from either the instance's own `'message'` event or the per-channel emitter on
+ * {@link (PgPubSub:class).channels}.
  *
- * Importing:
- * ```typescript
- * import { AnyJson, PgPubSub } from '@imqueue/pg-pubsub';
- * ```
+ * @remarks
+ * Subscribe from inside the `'connect'` handler rather than after awaiting
+ * `connect()`. The connection reconnects automatically, and only the handler runs
+ * again on each reconnect — subscriptions made once, after the first connect,
+ * are not restored.
  *
- * Instantiation:
- * ```typescript
- * const pubSub = new PgPubSub(options)
- * ```
- * @see PgPubSubOptions
+ * `close()` and `connect()` are a matched pair for temporarily stepping out of
+ * message handling: closing releases the channel locks, so another running copy
+ * takes over the channels while this one is busy, and connecting again competes
+ * for them. Use it when a process needs to do heavy work without holding up its
+ * channels. To shut down for good use {@link (PgPubSub:class).destroy} instead,
+ * which also removes the listeners and cannot be reconnected.
  *
- * Connecting and listening:
+ * @example
+ * Connect, subscribe two channels and handle their messages:
  * ```typescript
- * pubSub.on('connect', async () => {
- *     await pubSub.listen('ChannelOne');
- *     await pubSub.listen('ChannelTwo');
- * });
- * // or, even better:
+ * import { type AnyJson, PgPubSub } from '@imqueue/pg-pubsub';
+ *
+ * const pubSub = new PgPubSub({ connectionString: process.env.DB_URL });
+ *
+ * // subscribe inside 'connect' so the channels are restored on every reconnect
  * pubSub.on('connect', async () => {
  *     await Promise.all(
- *         ['ChannelOne', 'ChannelTwo'].map(channel => channel.listen()),
+ *         ['ChannelOne', 'ChannelTwo'].map(channel => pubSub.listen(channel)),
  *     );
  * });
- * // or. less reliable:
- * await pubSub.connect();
- * await Promise.all(
- *     ['ChannelOne', 'ChannelTwo'].map(channel => channel.listen()),
- * );
- * ```
  *
- * Handle messages:
- * ```typescript
+ * // one handler for every channel...
  * pubSub.on('message', (channel: string, payload: AnyJson) =>
- *     console.log(channel, payload);
+ *     console.log(channel, payload),
  * );
- * // or, using channels
- * pubSub.channels.on('ChannelOne', (payload: AnyJson) =>
- *     console.log(1, payload),
- * );
- * pubSub.channels.on('ChannelTwo', (payload: AnyJson) =>
- *     console.log(2, payload),
- * );
+ *
+ * // ...or one per channel
+ * pubSub.channels.on('ChannelOne', (payload: AnyJson) => console.log(1, payload));
+ * pubSub.channels.on('ChannelTwo', (payload: AnyJson) => console.log(2, payload));
+ *
+ * await pubSub.connect();
  * ```
  *
- * Destroying:
- * ```typescript
- * await pubSub.destroy();
- * ```
- *
- * Closing and re-using connection:
+ * @example
+ * Step out of handling and come back, letting another copy take the channels:
  * ```typescript
  * await pubSub.close();
+ * // ... heavy work here; another running copy handles the channels meanwhile
  * await pubSub.connect();
  * ```
  *
- * This close/connect technique may be used when doing some heavy message
- * handling, so while you close, another running copy may handle next
- * messages...
+ * @see {@link PgPubSubOptions} for every option and its default
  */
 export class PgPubSub extends EventEmitter {
     /**
