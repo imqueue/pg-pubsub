@@ -1,0 +1,18 @@
+# Fails this PR if it has no usable description or its title says nothing.
+#
+# The rules live in imqueue/.github/.github/workflows/pr-quality.yml. They exist because
+# generated release notes are built from PR titles and bodies — see release.yml, which
+# creates the GitHub Release page on tag push and cannot invent detail nobody wrote down.
+#
+# `edited` is in the trigger list on purpose: fixing the description must clear the
+# failure without pushing a commit.
+
+name: PR quality
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  description:
+    uses: imqueue/.github/.github/workflows/pr-quality.yml@master
