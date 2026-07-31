@@ -55,170 +55,152 @@ export declare interface PgPubSub {
     /**
      * Sets `'end'` event handler
      *
-     * @param {'end'} event
-     * @param {typeof end} listener
-     * @return {PgPubSub}
+     * @param event - `'end'` — the underlying connection has ended and will not reconnect
+     * @param listener - handler invoked when the underlying connection has ended and will not reconnect.
      */
     on(event: 'end', listener: typeof end): this;
 
     /**
      * Sets `'connect'` event handler
      *
-     * @param {'connect'} event
-     * @param {typeof connect} listener
-     * @return {PgPubSub}
+     * @param event - `'connect'` — a PostgreSQL connection has been established
+     * @param listener - handler invoked when a PostgreSQL connection has been established.
      */
     on(event: 'connect', listener: typeof connect): this;
 
     /**
      * Sets `'close'` event handler
      *
-     * @param {'close'} event
-     * @param {typeof close} listener
-     * @return {PgPubSub}
+     * @param event - `'close'` — the connection was closed by close(), leaving it re-usable
+     * @param listener - handler invoked when the connection was closed by close(), leaving it re-usable.
      */
     on(event: 'close', listener: typeof close): this;
 
     /**
      * Sets `'listen'` event handler
      *
-     * @param {'listen'} event
-     * @param {typeof listen} listener
-     * @return {PgPubSub}
+     * @param event - `'listen'` — this process began listening one or more channels
+     * @param listener - handler invoked when this process began listening one or more channels.
      */
     on(event: 'listen', listener: typeof listen): this;
 
     /**
      * Sets `'unlisten'` event handler
      *
-     * @param {'unlisten'} event
-     * @param {typeof unlisten} listener
-     * @return {PgPubSub}
+     * @param event - `'unlisten'` — this process stopped listening one or more channels
+     * @param listener - handler invoked when this process stopped listening one or more channels.
      */
     on(event: 'unlisten', listener: typeof unlisten): this;
 
     /**
      * Sets `'error'` event handler
      *
-     * @param {'error'} event
-     * @param {typeof error} listener
-     * @return {PgPubSub}
+     * @param event - `'error'` — an error occurred, including exhausting the reconnect limit
+     * @param listener - handler invoked when an error occurred, including exhausting the reconnect limit.
      */
     on(event: 'error', listener: typeof error): this;
 
     /**
      * Sets `'reconnect'` event handler
      *
-     * @param {'reconnect'} event
-     * @param {typeof reconnect} listener
-     * @return {PgPubSub}
+     * @param event - `'reconnect'` — a reconnect attempt was made, with the attempt number
+     * @param listener - handler invoked when a reconnect attempt was made, with the attempt number.
      */
     on(event: 'reconnect', listener: typeof reconnect): this;
 
     /**
      * Sets `'message'` event handler
      *
-     * @param {'message'} event
-     * @param {typeof message} listener
-     * @return {PgPubSub}
+     * @param event - `'message'` — a notification arrived on any listened channel
+     * @param listener - handler invoked when a notification arrived on any listened channel.
      */
     on(event: 'message', listener: typeof message): this;
 
     /**
      * Sets `'notify'` event handler
      *
-     * @param {'notify'} event
-     * @param {typeof notify} listener
-     * @return {PgPubSub}
+     * @param event - `'notify'` — this instance published a notification
+     * @param listener - handler invoked when this instance published a notification.
      */
     on(event: 'notify', listener: typeof notify): this;
 
     /**
      * Sets any unknown or user-defined event handler
      *
-     * @param {string | symbol} event - event name
-     * @param {(...args: any[]) => void} listener - event handler
+     * @param event - event name
+     * @param listener - event handler
      */
     on(event: string | symbol, listener: (...args: any[]) => void): this;
 
     /**
      * Sets `'end'` event handler, which fired only one single time
      *
-     * @param {'end'} event
-     * @param {typeof end} listener
-     * @return {PgPubSub}
+     * @param event - `'end'` — the underlying connection has ended and will not reconnect
+     * @param listener - handler invoked when the underlying connection has ended and will not reconnect. Fires at most once.
      */
     once(event: 'end', listener: typeof end): this;
 
     /**
      * Sets `'connect'` event handler, which fired only one single time
      *
-     * @param {'connect'} event
-     * @param {typeof connect} listener
-     * @return {PgPubSub}
+     * @param event - `'connect'` — a PostgreSQL connection has been established
+     * @param listener - handler invoked when a PostgreSQL connection has been established. Fires at most once.
      */
     once(event: 'connect', listener: typeof connect): this;
 
     /**
      * Sets `'close'` event handler, which fired only one single time
      *
-     * @param {'close'} event
-     * @param {typeof close} listener
-     * @return {PgPubSub}
+     * @param event - `'close'` — the connection was closed by close(), leaving it re-usable
+     * @param listener - handler invoked when the connection was closed by close(), leaving it re-usable. Fires at most once.
      */
     once(event: 'close', listener: typeof close): this;
 
     /**
      * Sets `'listen'` event handler, which fired only one single time
      *
-     * @param {'listen'} event
-     * @param {typeof listen} listener
-     * @return {PgPubSub}
+     * @param event - `'listen'` — this process began listening one or more channels
+     * @param listener - handler invoked when this process began listening one or more channels. Fires at most once.
      */
     once(event: 'listen', listener: typeof listen): this;
 
     /**
      * Sets `'unlisten'` event handler, which fired only one single time
      *
-     * @param {'unlisten'} event
-     * @param {typeof unlisten} listener
-     * @return {PgPubSub}
+     * @param event - `'unlisten'` — this process stopped listening one or more channels
+     * @param listener - handler invoked when this process stopped listening one or more channels. Fires at most once.
      */
     once(event: 'unlisten', listener: typeof unlisten): this;
 
     /**
      * Sets `'error'` event handler, which fired only one single time
      *
-     * @param {'error'} event
-     * @param {typeof error} listener
-     * @return {PgPubSub}
+     * @param event - `'error'` — an error occurred, including exhausting the reconnect limit
+     * @param listener - handler invoked when an error occurred, including exhausting the reconnect limit. Fires at most once.
      */
     once(event: 'error', listener: typeof error): this;
 
     /**
      * Sets `'reconnect'` event handler, which fired only one single time
      *
-     * @param {'reconnect'} event
-     * @param {typeof reconnect} listener
-     * @return {PgPubSub}
+     * @param event - `'reconnect'` — a reconnect attempt was made, with the attempt number
+     * @param listener - handler invoked when a reconnect attempt was made, with the attempt number. Fires at most once.
      */
     once(event: 'reconnect', listener: typeof reconnect): this;
 
     /**
      * Sets `'message'` event handler, which fired only one single time
      *
-     * @param {'message'} event
-     * @param {typeof message} listener
-     * @return {PgPubSub}
+     * @param event - `'message'` — a notification arrived on any listened channel
+     * @param listener - handler invoked when a notification arrived on any listened channel. Fires at most once.
      */
     once(event: 'message', listener: typeof message): this;
 
     /**
      * Sets `'notify'` event handler, which fired only one single time
      *
-     * @param {'notify'} event
-     * @param {typeof notify} listener
-     * @return {PgPubSub}
+     * @param event - `'notify'` — this instance published a notification
+     * @param listener - handler invoked when this instance published a notification. Fires at most once.
      */
     once(event: 'notify', listener: typeof notify): this;
 
@@ -226,11 +208,17 @@ export declare interface PgPubSub {
      * Sets any unknown or user-defined event handler, which would fire only
      * one single time
      *
-     * @param {string | symbol} event - event name
-     * @param {(...args: any[]) => void} listener - event handler
+     * @param event - event name
+     * @param listener - event handler
      */
     once(event: string | symbol, listener: (...args: any[]) => void): this;
 }
+
+/**
+ * Maximum byte length of a NOTIFY payload postgres accepts (with default
+ * server configuration)
+ */
+const MAX_PAYLOAD_LENGTH = 8000;
 
 /**
  * Implements LISTEN/NOTIFY client for PostgreSQL connections.
@@ -239,18 +227,18 @@ export declare interface PgPubSub {
  * to work with this class directly to solve his/her tasks.
  *
  * Importing:
- * ~~~typescript
+ * ```typescript
  * import { AnyJson, PgPubSub } from '@imqueue/pg-pubsub';
- * ~~~
+ * ```
  *
  * Instantiation:
- * ~~~typescript
+ * ```typescript
  * const pubSub = new PgPubSub(options)
- * ~~~
+ * ```
  * @see PgPubSubOptions
  *
  * Connecting and listening:
- * ~~~typescript
+ * ```typescript
  * pubSub.on('connect', async () => {
  *     await pubSub.listen('ChannelOne');
  *     await pubSub.listen('ChannelTwo');
@@ -266,10 +254,10 @@ export declare interface PgPubSub {
  * await Promise.all(
  *     ['ChannelOne', 'ChannelTwo'].map(channel => channel.listen()),
  * );
- * ~~~
+ * ```
  *
  * Handle messages:
- * ~~~typescript
+ * ```typescript
  * pubSub.on('message', (channel: string, payload: AnyJson) =>
  *     console.log(channel, payload);
  * );
@@ -280,31 +268,35 @@ export declare interface PgPubSub {
  * pubSub.channels.on('ChannelTwo', (payload: AnyJson) =>
  *     console.log(2, payload),
  * );
- * ~~~
+ * ```
  *
  * Destroying:
- * ~~~typescript
+ * ```typescript
  * await pubSub.destroy();
- * ~~~
+ * ```
  *
  * Closing and re-using connection:
- * ~~~typescript
+ * ```typescript
  * await pubSub.close();
  * await pubSub.connect();
- * ~~~
+ * ```
  *
  * This close/connect technique may be used when doing some heavy message
  * handling, so while you close, another running copy may handle next
  * messages...
  */
-/**
- * Maximum byte length of a NOTIFY payload postgres accepts (with default
- * server configuration)
- */
-const MAX_PAYLOAD_LENGTH = 8000;
-
 export class PgPubSub extends EventEmitter {
+    /**
+     * Options this instance was constructed with, merged over the defaults in
+     * `DefaultOptions`.
+     */
     public readonly options: PgPubSubOptions;
+
+    /**
+     * Per-channel event emitter. Listening here scopes a handler to one channel,
+     * where the instance's own `'message'` event fires for every channel — which
+     * is usually what you want when a process listens to several.
+     */
     public readonly channels: PgChannelEmitter = new PgChannelEmitter();
 
     private client: PgClient;
@@ -320,19 +312,21 @@ export class PgPubSub extends EventEmitter {
      * automatic reconnect (pg clients are single-use), so do not cache
      * this reference across reconnects.
      *
-     * @return {PgClient}
      */
     public get pgClient(): PgClient {
         return this.client;
     }
 
     /**
-     * @constructor
-     * @param {PgPubSubOptions} options - options
-     * @param {AnyLogger} logger - logger
+     * @param options - options
+     * @param logger - logger
      */
     public constructor(
         options: Partial<PgPubSubOptions>,
+        /**
+         * Where connection, listen and lock lifecycle events are reported.
+         * Defaults to the console.
+         */
         public readonly logger: AnyLogger = console,
     ) {
         super();
@@ -357,8 +351,6 @@ export class PgPubSub extends EventEmitter {
     /**
      * Wires base handlers to the current underlying pg client
      *
-     * @access private
-     * @return {void}
      */
     private attachClientHandlers(): void {
         this.client.on('end', () => this.emit('end'));
@@ -371,9 +363,7 @@ export class PgPubSub extends EventEmitter {
      * 'error' event would crash the process, and connection errors always
      * deserve a trace
      *
-     * @access private
-     * @param {Error} err - error to propagate
-     * @return {void}
+     * @param err - error to propagate
      */
     private emitError(err: Error): void {
         if (this.listenerCount('error') > 0) {
@@ -386,7 +376,6 @@ export class PgPubSub extends EventEmitter {
     /**
      * Establishes re-connectable database connection
      *
-     * @return {Promise<void>}
      */
     public async connect(): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -420,7 +409,6 @@ export class PgPubSub extends EventEmitter {
     /**
      * Safely closes this database connection
      *
-     * @return {Promise<void>}
      */
     public async close(): Promise<void> {
         if (this.reconnectTimer) {
@@ -442,8 +430,7 @@ export class PgPubSub extends EventEmitter {
      * true, it guarantees that only one process would be able to listen
      * this channel at a time.
      *
-     * @param {string} channel - channel name to listen
-     * @return {Promise<void>}
+     * @param channel - channel name to listen
      */
     public async listen(channel: string): Promise<void> {
         if (this.options.executionLock) {
@@ -471,8 +458,7 @@ export class PgPubSub extends EventEmitter {
      * Stops listening of the given channel, and, if singleListener option is
      * set to true - will release an acquired lock (if it was settled).
      *
-     * @param {string} channel - channel name to unlisten
-     * @return {Promise<void>}
+     * @param channel - channel name to unlisten
      */
     public async unlisten(channel: string): Promise<void> {
         await this.pgClient.query(`UNLISTEN ${ident(channel)}`);
@@ -489,7 +475,6 @@ export class PgPubSub extends EventEmitter {
      * Stops listening all connected channels, and, if singleListener option
      * is set to true - will release all acquired locks (if any was settled).
      *
-     * @return {Promise<void>}
      */
     public async unlistenAll(): Promise<void> {
         await this.pgClient.query('UNLISTEN *');
@@ -502,9 +487,8 @@ export class PgPubSub extends EventEmitter {
      * Performs NOTIFY to a given channel with a given payload to all
      * listening subscribers
      *
-     * @param {string} channel - channel to publish to
-     * @param {AnyJson} payload - payload to publish for subscribers
-     * @return {Promise<void>}
+     * @param channel - channel to publish to
+     * @param payload - payload to publish for subscribers
      */
     public async notify(channel: string, payload: AnyJson): Promise<void> {
         const packed = pack(payload, this.logger);
@@ -526,7 +510,6 @@ export class PgPubSub extends EventEmitter {
     /**
      * Returns list of all active subscribed channels
      *
-     * @return {string[]}
      */
     public activeChannels(): string[] {
         return Object.keys(this.locks).filter(channel =>
@@ -538,7 +521,6 @@ export class PgPubSub extends EventEmitter {
      * Returns list of all inactive channels (those which are known, but
      * not actively listening at a time)
      *
-     * @return {string[]}
      */
     public inactiveChannels(): string[] {
         return Object.keys(this.locks).filter(
@@ -550,7 +532,6 @@ export class PgPubSub extends EventEmitter {
      * Returns list of all known channels, despite the fact they are listening
      * (active) or not (inactive).
      *
-     * @return {string[]}
      */
     public allChannels(): string[] {
         return Object.keys(this.locks);
@@ -562,8 +543,7 @@ export class PgPubSub extends EventEmitter {
      * not specified - will return true if there is at least one active channel
      * listened by this pub/sub, false - otherwise.
      *
-     * @param {string} channel
-     * @return {boolean}
+     * @param channel - channel to test; omit to test the connection as a whole
      */
     public isActive(channel?: string): boolean {
         if (!channel) {
@@ -580,7 +560,6 @@ export class PgPubSub extends EventEmitter {
      * programmatically - use this method.
      * Note, that after destroy it is broken and should be removed from memory.
      *
-     * @return {Promise<void>}
      */
     public async destroy(): Promise<void> {
         this.destroyed = true;
@@ -604,10 +583,8 @@ export class PgPubSub extends EventEmitter {
      * Safely sets given handler for given pg client events, making sure
      * we won't flood events with non-fired same stack of handlers
      *
-     * @access private
-     * @param {string[]} events - list of events to set handler for
-     * @param {(...args: any[]) => any} handler - handler reference
-     * @return {PgPubSub}
+     * @param events - list of events to set handler for
+     * @param handler - handler reference
      */
     private setOnceHandler(
         events: string[],
@@ -627,8 +604,8 @@ export class PgPubSub extends EventEmitter {
     /**
      * Clears all similar handlers under given event
      *
-     * @param {string} event - event name
-     * @param {(...args: any) => any} handler - handler reference
+     * @param event - event name
+     * @param handler - handler reference
      */
     private clearListeners(
         event: string,
@@ -645,9 +622,7 @@ export class PgPubSub extends EventEmitter {
     /**
      * Database notification event handler
      *
-     * @access private
-     * @param {Notification} notification - database message data
-     * @return {Promise<void>}
+     * @param notification - database message data
      */
     private async onNotification(notification: Notification): Promise<void> {
         const skip =
@@ -679,9 +654,7 @@ export class PgPubSub extends EventEmitter {
     /**
      * Database notification event handler for execution lock
      *
-     * @access private
-     * @param {Notification} notification - database message data
-     * @return {Promise<void>}
+     * @param notification - database message data
      */
     private async onNotificationLockExec(
         notification: Notification,
@@ -744,8 +717,6 @@ export class PgPubSub extends EventEmitter {
     /**
      * On reconnect event emitter
      *
-     * @access private
-     * @return {Promise<void>}
      */
     private async onReconnect(): Promise<void> {
         const channels = this.reListenChannels ?? Object.keys(this.locks);
@@ -767,8 +738,6 @@ export class PgPubSub extends EventEmitter {
      * Reconnect routine, used for implementation of auto-reconnecting db
      * connection
      *
-     * @access private
-     * @return {number}
      */
     private reconnect(): number {
         if (this.reconnectTimer) {
@@ -815,8 +784,6 @@ export class PgPubSub extends EventEmitter {
      * communication is possible through it anyway); channels stay in the
      * locks registry keys through onReconnect() re-listen.
      *
-     * @access private
-     * @return {void}
      */
     private recreateClient(): void {
         const channels = Object.keys(this.locks);
@@ -844,9 +811,7 @@ export class PgPubSub extends EventEmitter {
      * check (it sees our own live connection as the current holder) and would
      * skip the subscription it was meant to complete.
      *
-     * @access private
-     * @param {string} channel
-     * @return {Promise<void>}
+     * @param channel - channel this applies to
      */
     private async subscribe(channel: string): Promise<void> {
         await this.pgClient.query(`LISTEN ${ident(channel)}`);
@@ -857,9 +822,7 @@ export class PgPubSub extends EventEmitter {
      * Instantiates and returns process lock for a given channel or returns
      * existing one
      *
-     * @access private
-     * @param {string} channel
-     * @return {Promise<PgIpLock>}
+     * @param channel - channel this applies to
      */
     private async lock(channel: string): Promise<AnyLock> {
         if (!this.locks[channel]) {
@@ -882,9 +845,8 @@ export class PgPubSub extends EventEmitter {
     /**
      * Instantiates new lock, properly initializes it and returns
      *
-     * @param {string} channel
-     * @param {string} [uniqueKey]
-     * @return {Promise<AnyLock>}
+     * @param channel -
+     * @param uniqueKey -
      */
     private async createLock(
         channel: string,
@@ -919,8 +881,6 @@ export class PgPubSub extends EventEmitter {
     /**
      * Releases all acquired locks in current session
      *
-     * @access private
-     * @return {Promise<void>}
      */
     private async release(): Promise<void> {
         await Promise.all(
@@ -943,8 +903,6 @@ export class PgPubSub extends EventEmitter {
     /**
      * Sets application_name for this connection as unique identifier
      *
-     * @access private
-     * @return {Promise<void>}
      */
     private async setAppName(): Promise<void> {
         try {
@@ -961,7 +919,6 @@ export class PgPubSub extends EventEmitter {
      * Retrieves process identifier from the database connection and sets it to
      * `this.processId`.
      *
-     * @return {Promise<void>}
      */
     private async setProcessId(): Promise<void> {
         try {

@@ -27,18 +27,16 @@ export declare interface PgChannelEmitter {
     /**
      * Sets channel listener event handler
      *
-     * @param {string} channelName - channel name to listen
-     * @param {typeof channel} listener - channel event handler
-     * @return {PgChannelEmitter}
+     * @param channelName - channel name to listen
+     * @param listener - channel event handler
      */
     on(channelName: string, listener: typeof channel): this;
 
     /**
      * Sets channel listener event handler which will be fired only one time
      *
-     * @param {string} channelName - channel name to listen
-     * @param {typeof channel} listener - channel event handler
-     * @return {PgChannelEmitter}
+     * @param channelName - channel name to listen
+     * @param listener - channel event handler
      */
     once(channelName: string, listener: typeof channel): this;
 }

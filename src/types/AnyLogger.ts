@@ -23,8 +23,18 @@
  * Represents logger interface suitable to be injected into this library objects
  */
 export interface AnyLogger {
+    /** General-purpose message, equivalent to `console.log`. */
     log(...args: any[]): void;
+
+    /** Informational message: connection, listen and lock lifecycle events. */
     info(...args: any[]): void;
+
+    /**
+     * Recoverable problem — a failed reconnect attempt, or a payload rejected for
+     * exceeding the NOTIFY size limit.
+     */
     warn(...args: any[]): void;
+
+    /** Unrecoverable problem, including exhausting the reconnect retry limit. */
     error(...args: any[]): void;
 }

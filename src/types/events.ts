@@ -25,9 +25,7 @@ import { type AnyJson } from '../types/index.js';
  * Channel listener event, occurs whenever the listening channel gets a new
  * payload message.
  *
- * @mergeModuleWith PgChannelEmitter
- * @event channel
- * @param {AnyJson} payload - event payload
+ * @param payload - event payload
  */
 export declare function channel(payload: AnyJson): void;
 
@@ -35,16 +33,12 @@ export declare function channel(payload: AnyJson): void;
  * `'end'` event, occurs whenever pg connection ends, so, literally it's simply
  * proxy to `'end'` event from `pg.Client`
  *
- * @mergeModuleWith PgPubSub
- * @event end
  */
 export declare function end(): void;
 
 /**
  * `'connect'` event, occurs each time database connection is established.
  *
- * @mergeModuleWith PgPubSub
- * @event connect
  */
 export declare function connect(): void;
 
@@ -54,35 +48,27 @@ export declare function connect(): void;
  * connection process, but `'close'` event states that connection was
  * safely programmatically closed and further re-connections won't happen.
  *
- * @mergeModuleWith PgPubSub
- * @event close
  */
 export declare function close(): void;
 
 /**
  * `'listen'` event occurs each time channel starts being listening
  *
- * @mergeModuleWith PgPubSub
- * @event listen
- * @param {string[]} channels - list of channels being started listening
+ * @param channels - list of channels being started listening
  */
 export declare function listen(channels: string[]): void;
 
 /**
  * `'unlisten'` event occurs each time channel ends being listening
  *
- * @mergeModuleWith PgPubSub
- * @event unlisten
- * @param {string[]} channels - list of channels being stopped listening
+ * @param channels - list of channels being stopped listening
  */
 export declare function unlisten(channels: string[]): void;
 
 /**
  * `'error'` event occurs each time connection error is happened
  *
- * @mergeModuleWith PgPubSub
- * @event error
- * @param {Error} err - error occurred during connection
+ * @param err - error occurred during connection
  */
 export declare function error(err: Error): void;
 
@@ -92,9 +78,7 @@ export declare function error(err: Error): void;
  * `'connect'` event, but after all possible channel locks finished their
  * attempts to be re-acquired.
  *
- * @mergeModuleWith PgPubSub
- * @event reconnect
- * @param {number} retries - number of retries made before re-connect succeeded
+ * @param retries - number of retries made before re-connect succeeded
  */
 export declare function reconnect(retries: number): void;
 
@@ -102,10 +86,8 @@ export declare function reconnect(retries: number): void;
  * `'message'` event occurs each time database connection gets notification
  * to any listening channel. Fired before channel event emitted.
  *
- * @mergeModuleWith PgPubSub
- * @event message
- * @param {string} chan - channel to which notification corresponding to
- * @param {AnyJson} payload - notification message payload
+ * @param chan - channel to which notification corresponding to
+ * @param payload - notification message payload
  */
 export declare function message(chan: string, payload: AnyJson): void;
 
@@ -113,9 +95,7 @@ export declare function message(chan: string, payload: AnyJson): void;
  * `'notify'` event occurs each time new message has been published to a
  * particular channel. Occurs right after database NOTIFY command succeeded.
  *
- * @mergeModuleWith PgPubSub
- * @event notify
- * @param {string} chan - channel to which notification was sent
- * @param {AnyJson} payload - notification message payload
+ * @param chan - channel to which notification was sent
+ * @param payload - notification message payload
  */
 export declare function notify(chan: string, payload: AnyJson): void;

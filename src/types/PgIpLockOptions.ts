@@ -31,7 +31,6 @@ export interface PgIpLockOptions {
      * Lock will not create connection itself, but await the connection client
      * to be provided explicitly.
      *
-     * @type {PgClient}
      */
     pgClient: PgClient;
 
@@ -39,7 +38,6 @@ export interface PgIpLockOptions {
      * Logger to be used for log messages produced by lock instances. Any
      * logger which follows [[AnyLogger]] interface is suitable.
      *
-     * @type {AnyLogger}
      */
     logger: AnyLogger;
 
@@ -47,7 +45,6 @@ export interface PgIpLockOptions {
      * Acquire re-try interval. See [[PgPubSubOptions.acquireInterval]].
      *
      * @see PgPubSubOptions.acquireInterval
-     * @type {number}
      */
     acquireInterval: number;
 }

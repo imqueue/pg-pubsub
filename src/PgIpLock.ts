@@ -70,7 +70,6 @@ export class PgIpLock implements AnyLock {
     /**
      * DB lock schema name getter
      *
-     * @return {string}
      */
     public get schemaName(): string {
         const suffix = this.uniqueKey ? '_unique' : '';
@@ -81,7 +80,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Calls destroy() on all created instances at a time
      *
-     * @return {Promise<void>}
      */
     public static async destroy(): Promise<void> {
         await Promise.all(
@@ -92,7 +90,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Returns true if at least one instance was created, false - otherwise
      *
-     * @return {boolean}
      */
     public static hasInstances(): boolean {
         return PgIpLock.instances.length > 0;
@@ -106,14 +103,27 @@ export class PgIpLock implements AnyLock {
     private acquireTimer?: Timeout;
 
     /**
-     * @constructor
-     * @param {string} channel - source channel name to manage locking on
-     * @param {PgIpLockOptions} options - lock instantiate options
-     * @param {string} [uniqueKey] - unique key for specific message
+     * @param channel - source channel name to manage locking on
+     * @param options - lock instantiate options
+     * @param uniqueKey - unique key for specific message
      */
     public constructor(
+        /**
+         * Channel this lock guards. One lock row exists per channel, so this is
+         * what the competing processes contend over.
+         */
         public readonly channel: string,
+
+        /**
+         * Connection, schema and retry settings for this lock.
+         */
         public readonly options: PgIpLockOptions,
+
+        /**
+         * Optional content key making the lock a de-duplication marker for one
+         * specific payload rather than a listener election for the channel.
+         * Supplied by the execution-lock path; see `EXECUTION_LOCK`.
+         */
         public readonly uniqueKey?: string,
     ) {
         this.channel = `__${PgIpLock.name}__:${channel.replace(
@@ -128,7 +138,6 @@ export class PgIpLock implements AnyLock {
      * listening of lock release events, as well as initializes lock
      * acquire retry timer.
      *
-     * @return {Promise<void>}
      */
     public async init(): Promise<void> {
         await this.ensureSchema();
@@ -159,7 +168,7 @@ export class PgIpLock implements AnyLock {
      * lock is released and the channel name would be bypassed to a given
      * handler
      *
-     * @param {(channel: string) => void} handler
+     * @param handler - called with the channel name when this lock changes hands
      */
     public onRelease(handler: (channel: string) => void): void {
         if (this.notifyHandler) {
@@ -192,7 +201,7 @@ export class PgIpLock implements AnyLock {
      * by a process that does nothing with it - forever, since a held lock
      * keeps every other process away too.
      *
-     * @param {(channel: string) => void} handler
+     * @param handler - called with the channel name when this lock changes hands
      */
     public onAcquire(handler: (channel: string) => void): void {
         if (this.acquireHandler) {
@@ -208,7 +217,6 @@ export class PgIpLock implements AnyLock {
      * Acquires a lock on the current channel. Returns true on success,
      * false - otherwise
      *
-     * @return {Promise<boolean>}
      */
     public async acquire(): Promise<boolean> {
         try {
@@ -264,7 +272,6 @@ export class PgIpLock implements AnyLock {
      * acquire() is also called directly by whoever set the handler up, and
      * notifying from there would call that caller back into itself.
      *
-     * @return {Promise<void>}
      */
     private async retryAcquire(): Promise<void> {
         if (this.acquired) {
@@ -283,7 +290,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Channel name without the internal lock prefix, for log messages
      *
-     * @return {string}
      */
     private get publicChannel(): string {
         return this.channel.replace(RX_LOCK_CHANNEL, '');
@@ -295,7 +301,6 @@ export class PgIpLock implements AnyLock {
      * bootstrap instead of racing the (idempotent) ddl. A failed bootstrap
      * is not memoized, so a later lock may retry it.
      *
-     * @return {Promise<void>}
      */
     private ensureSchema(): Promise<void> {
         const client = this.options.pgClient as object;
@@ -323,7 +328,6 @@ export class PgIpLock implements AnyLock {
      * connections bootstrapping the same schema); logs and rethrows on a
      * persistent failure (e.g. missing ddl privileges) so it is visible.
      *
-     * @return {Promise<void>}
      */
     private async bootstrapSchema(): Promise<void> {
         let lastError: unknown;
@@ -358,7 +362,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Acquires a lock with ID
      *
-     * @return {Promise<void>}
      */
     private async acquireUniqueLock(): Promise<void> {
         // processed-message markers (see onNotificationLockExec) expire
@@ -387,7 +390,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Acquires a lock by unique channel
      *
-     * @return {Promise<void>}
      */
     private async acquireChannelLock(): Promise<void> {
         // noinspection SqlResolve
@@ -408,7 +410,6 @@ export class PgIpLock implements AnyLock {
      * Releases acquired lock on this channel. After lock is released, another
      * running process or host would be able to acquire the lock.
      *
-     * @return {Promise<void>}
      */
     public async release(): Promise<void> {
         if (!this.acquired) {
@@ -438,7 +439,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Returns current lock state, true if acquired, false - otherwise.
      *
-     * @return {boolean}
      */
     public isAcquired(): boolean {
         return this.acquired;
@@ -447,7 +447,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Destroys this lock properly.
      *
-     * @return {Promise<void>}
      */
     public async destroy(): Promise<void> {
         try {
@@ -497,7 +496,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Starts listening lock release channel
      *
-     * @return {Promise<void>}
      */
     private async listen(): Promise<void> {
         await this.options.pgClient.query(`LISTEN ${ident(this.channel)}`);
@@ -506,7 +504,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Stops listening lock release channel
      *
-     * @return {Promise<void>}
      */
     private async unlisten(): Promise<void> {
         await this.options.pgClient.query(`UNLISTEN ${ident(this.channel)}`);
@@ -515,7 +512,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Creates lock db schema
      *
-     * @return {Promise<void>}
      */
     private async createSchema(): Promise<void> {
         await this.options.pgClient.query(`
@@ -526,7 +522,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Creates lock table with delete trigger, which notifies on record removal
      *
-     * @return {Promise<void>}
      */
     private async createLock(): Promise<void> {
         // istanbul ignore if
@@ -542,7 +537,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Creates unique locks by IDs in the database
      *
-     * @return {Promise<void>}
      */
     private async createUniqueLock(): Promise<void> {
         // idempotent, non-destructive bootstrap: never DROP the table (a
@@ -572,7 +566,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Creates locks by channel names in the database
      *
-     * @return {Promise<void>}
      */
     private async createChannelLock(): Promise<void> {
         // the channel schema is dedicated (no _unique suffix) and only ever
@@ -613,7 +606,6 @@ export class PgIpLock implements AnyLock {
     /**
      * Creates deadlocks check routine used on lock acquaintance
      *
-     * @return {Promise<void>}
      */
     private async createDeadlockCheck(): Promise<void> {
         await this.options.pgClient.query(`
@@ -638,6 +630,14 @@ export class PgIpLock implements AnyLock {
     }
 }
 
+/**
+ * Matches the internal prefix {@link PgIpLock} puts on its own coordination
+ * channels, so a listener can tell lock traffic apart from application
+ * notifications.
+ *
+ * The prefix is repeated rather than nested — hence the `+` — so this strips any
+ * number of levels in one pass.
+ */
 export const RX_LOCK_CHANNEL = new RegExp(`^(__${PgIpLock.name}__:)+`);
 
 let timer: any;

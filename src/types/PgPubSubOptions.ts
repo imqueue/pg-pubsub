@@ -41,14 +41,12 @@ export interface PgPubSubOptions extends ClientConfig {
      * Otherwise it is required to bypass correct options to instantiate
      * new `pg.Client` connection properly.
      *
-     * @type {Client}
      */
     pgClient?: Client;
 
     /**
      * Specifies delay in milliseconds between re-connection retries
      *
-     * @type {number}
      */
     retryDelay: number;
 
@@ -57,7 +55,6 @@ export interface PgPubSubOptions extends ClientConfig {
      * connection would be treated as broken (disconnected). By default
      * is set to infinite number of retries.
      *
-     * @type {number}
      */
     retryLimit: number;
 
@@ -72,7 +69,6 @@ export interface PgPubSubOptions extends ClientConfig {
      * should be selected for a particular system with care of often acquire
      * lock hits and overall infrastructure reliability.
      *
-     * @type {number}
      */
     acquireInterval: number;
 
@@ -81,7 +77,6 @@ export interface PgPubSubOptions extends ClientConfig {
      * set to true, so instantiated PgPubSub connections will act using
      * inter-process locking mechanism.
      *
-     * @type {boolean}
      */
     singleListener: boolean;
 
@@ -91,7 +86,6 @@ export interface PgPubSubOptions extends ClientConfig {
      * By default is false - means that connection will `LISTEN` to the
      * messages, which were notified on the same connection.
      *
-     * @type {boolean}
      */
     filtered: boolean;
 
@@ -99,7 +93,6 @@ export interface PgPubSubOptions extends ClientConfig {
      * If set to true, all instances become listeners but only instance is an
      * executor which still implements inter-process locking mechanism.
      *
-     * @type {boolean}
      */
     executionLock: boolean;
 
@@ -108,7 +101,6 @@ export interface PgPubSubOptions extends ClientConfig {
      * performing graceful locks release and process exit. Default is false:
      * a library must not take over process lifecycle unless asked to.
      *
-     * @type {boolean}
      */
     handleSignals: boolean;
 }
@@ -117,7 +109,6 @@ export interface PgPubSubOptions extends ClientConfig {
  * Hard-coded pre-set of PgPubSubOptions
  *
  * @see PgPubSubOptions
- * @type {PgPubSubOptions}
  */
 export const DefaultOptions: PgPubSubOptions = Object.freeze({
     retryLimit: RETRY_LIMIT,

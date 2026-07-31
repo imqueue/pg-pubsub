@@ -58,7 +58,9 @@ export interface AnyLock {
     /**
      * Implements lock release handler upset
      *
-     * @param {(channel: string) => void} handler
+     * @param handler - called with the channel name once this process has
+     *                  released the lock for it, so a waiting process can take
+     *                  over
      */
     onRelease(handler: (channel: string) => void): void;
 
@@ -68,7 +70,8 @@ export interface AnyLock {
      * has given up - which makes it the only chance for that caller to finish
      * whatever the lock was being acquired for.
      *
-     * @param {(channel: string) => void} handler
+     * @param handler - called with the channel name when a retry finally wins
+     *                  the lock, potentially long after acquire() resolved false
      */
     onAcquire(handler: (channel: string) => void): void;
 }

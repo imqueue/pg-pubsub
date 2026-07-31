@@ -32,12 +32,23 @@ export class NoLock implements AnyLock {
         return Promise.resolve();
     }
 
+    /**
+     * Registers nothing: a no-op lock is never held, so it is never released and
+     * the handler could never fire.
+     *
+     * @param handler - ignored
+     */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public onRelease(handler: (channel: string) => void): void {
         return;
     }
 
-    // no lock is never taken over: acquire() always succeeds on the spot
+    /**
+     * Registers nothing: {@link NoLock.acquire} always succeeds immediately, so
+     * there is no late takeover for the handler to report.
+     *
+     * @param handler - ignored
+     */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public onAcquire(handler: (channel: string) => void): void {
         return;
@@ -53,7 +64,6 @@ export class NoLock implements AnyLock {
     /**
      * Always acquires, because it's no lock
      *
-     * @return {Promise<boolean>}
      */
     public async acquire(): Promise<boolean> {
         return Promise.resolve(true);
@@ -62,7 +72,6 @@ export class NoLock implements AnyLock {
     /**
      * Never releases, because it's no lock
      *
-     * @return {Promise<void>}
      */
     public async release(): Promise<void> {
         return Promise.resolve();
@@ -71,7 +80,6 @@ export class NoLock implements AnyLock {
     /**
      * Always acquired, because it's no lock
      *
-     * @return {boolean}
      */
     public isAcquired(): boolean {
         return true;
@@ -80,7 +88,6 @@ export class NoLock implements AnyLock {
     /**
      * Safely destroys this no lock
      *
-     * @return {Promise<void>}
      */
     public async destroy(): Promise<void> {
         return Promise.resolve();

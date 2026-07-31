@@ -26,10 +26,8 @@ import { hash } from 'node:crypto';
  * Performs JSON.stringify on a given input taking into account
  * pretty flag.
  *
- * @access private
- * @param {AnyJson} input - serializable value
- * @param {boolean} [pretty] - serialized format output prettify flag
- * @return {string}
+ * @param input - serializable value
+ * @param pretty - serialized format output prettify flag
  */
 function stringify(input: AnyJson, pretty?: boolean): string {
     return pretty ? JSON.stringify(input, null, 2) : JSON.stringify(input);
@@ -39,10 +37,9 @@ function stringify(input: AnyJson, pretty?: boolean): string {
  * Serializes given input object to JSON string. On error will return
  * serialized null value
  *
- * @param {AnyJson} input - serializable value
- * @param {AnyLogger} [logger] - logger to handle errors logging with
- * @param {boolean} [pretty] - serialized format output prettify flag
- * @return {string}
+ * @param input - serializable value
+ * @param logger - logger to handle errors logging with
+ * @param pretty - serialized format output prettify flag
  */
 export function pack(
     input: AnyJson,
@@ -68,9 +65,8 @@ export function pack(
  * Deserializes given input JSON string to corresponding JSON value object.
  * On error will return empty object
  *
- * @param {string} input - string to deserialize
- * @param {AnyLogger} [logger] - logger to handle errors logging with
- * @return {AnyJson}
+ * @param input - string to deserialize
+ * @param logger - logger to handle errors logging with
  */
 export function unpack(input?: string, logger?: AnyLogger): AnyJson {
     if (typeof input !== 'string') {
@@ -92,10 +88,10 @@ export function unpack(input?: string, logger?: AnyLogger): AnyJson {
  * Constructs and returns hash string for a given set of processId, channel
  * and payload.
  *
- * @param {string} processId
- * @param {string} channel
- * @param {any} payload
- * @returns {string}
+ * @param processId - PostgreSQL backend pid of the publishing connection
+ * @param channel - channel the message was published on
+ * @param payload - message body; hashed by content, so two identical
+ *                  payloads on one channel produce the same signature
  */
 export function signature(
     processId: number,

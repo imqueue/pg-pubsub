@@ -25,5 +25,13 @@ import { Client } from 'pg';
  * Extends `pg.Client` with additional properties
  */
 export interface PgClient extends Client {
+    /**
+     * Value PostgreSQL reports as `application_name` for this connection.
+     *
+     * Load-bearing rather than cosmetic: the lock's liveness check looks the
+     * holder up in `pg_stat_activity` BY this name to decide whether it is still
+     * alive, so two processes sharing an appName cannot be told apart, and a
+     * blank one defeats the check.
+     */
     appName: string;
 }
