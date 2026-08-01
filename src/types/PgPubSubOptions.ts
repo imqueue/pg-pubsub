@@ -32,7 +32,7 @@ import {
  * Options accepted as option argument of PgPubSub constructor.
  * It extends `pg.ClientConfig` options, mostly because it is used to
  * construct PostgreSQL database connection, adding more properties required
- * to configure PgBubSub objects behavior.
+ * to configure PgPubSub objects behavior.
  */
 export interface PgPubSubOptions extends ClientConfig {
     /**
