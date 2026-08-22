@@ -38,7 +38,7 @@
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git://github.com/imqueue/pg-pubsub.git"
+    "url": "git+https://github.com/imqueue/pg-pubsub.git"
   },
   "bugs": {
     "url": "https://github.com/imqueue/pg-pubsub/issues"
