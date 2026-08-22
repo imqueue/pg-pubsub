@@ -19,7 +19,7 @@
  * purchase a proprietary commercial license. Please contact us at
  * <support@imqueue.com> to get commercial licensing options.
  */
-import { describe, it, beforeEach, after, afterEach } from 'node:test';
+import { describe, it, beforeEach, after, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     createSandbox,
@@ -44,6 +44,33 @@ after(() => {
     process.removeAllListeners('SIGINT');
 });
 
+/**
+ * Advance the faked clock by `count` acquire intervals, letting the async work
+ * each tick starts actually finish.
+ *
+ * WHY FAKE TIMERS. These tests used to sleep `ACQUIRE_INTERVAL * n + 5` in real
+ * time and assert an exact call count. With the test build's 10ms interval that
+ * gave a 5ms margin to decide the result, and it was racy in BOTH directions: a
+ * loaded runner fires the interval fewer times than expected, while an overshot
+ * sleep fires it more — and `calledTwice`/`calledOnce` mean exactly two and
+ * exactly one. It failed in CI on 2026-08-22 with one Build run red and another
+ * green on the identical commit, which is the worst kind of failure because it
+ * makes the build status useless as a release gate.
+ *
+ * `mock.timers.tick()` is SYNCHRONOUS: it invokes the interval callback and
+ * returns, but `retryAcquire()` is async, so everything after its first `await` —
+ * the acquire result and the onAcquire handler — is still queued when tick()
+ * returns. Draining with `setImmediate` between ticks is what lets the assertions
+ * see the settled state. Only `setInterval` is faked, so `setImmediate` here is
+ * the real one and genuinely yields to the microtask queue.
+ */
+async function tickAcquireIntervals(count: number): Promise<void> {
+    for (let i = 0; i < count; i++) {
+        mock.timers.tick(ACQUIRE_INTERVAL);
+        await new Promise(resolve => setImmediate(resolve));
+    }
+}
+
 describe('IPCLock', () => {
     let client: PgClient;
     let lock: PgIpLock;
@@ -56,7 +83,12 @@ describe('IPCLock', () => {
             acquireInterval: ACQUIRE_INTERVAL,
         });
     });
-    afterEach(async () => lock.destroy());
+    afterEach(async () => {
+        await lock.destroy();
+        // Safe when a test never enabled them, and guarantees one test's faked
+        // clock cannot leak into the next even if it threw part-way through.
+        mock.timers.reset();
+    });
 
     it('should be a class', () => {
         assert.equal(typeof PgIpLock, 'function');
@@ -94,16 +126,21 @@ describe('IPCLock', () => {
             ]);
         });
         it('should periodically re-acquire after init', async () => {
+            mock.timers.enable({ apis: ['setInterval'] });
+
             const spyAcquire = makeSpy(lock, 'acquire');
             await lock.init();
+            // Making the query throw keeps `acquired` false, so every tick is a
+            // fresh retry rather than an early return — which is what makes the
+            // count equal the number of intervals that fired.
             const stubAcquire = makeStub(client, 'query').throws(
                 new FakeError(),
             );
-            await new Promise(res => setTimeout(res, ACQUIRE_INTERVAL * 2 + 5));
+
+            await tickAcquireIntervals(2);
 
             assert.equal(spyAcquire.calledTwice, true);
 
-            // await compLock.destroy();
             await lock.destroy();
             stubAcquire.restore();
         });
@@ -175,10 +212,13 @@ describe('IPCLock', () => {
             );
         });
         it('should call the handler when the retry timer takes over', async () => {
+            mock.timers.enable({ apis: ['setInterval'] });
+
             const spy = makeSpy();
             lock.onAcquire(spy);
             await lock.init();
-            await new Promise(res => setTimeout(res, ACQUIRE_INTERVAL * 2 + 5));
+
+            await tickAcquireIntervals(2);
 
             assert.equal(spy.called, true);
             assert.deepEqual(spy.getCalls()[0].args, ['LockTest']);
@@ -191,10 +231,17 @@ describe('IPCLock', () => {
             assert.equal(spy.called, false);
         });
         it('should call the handler only once per takeover', async () => {
+            mock.timers.enable({ apis: ['setInterval'] });
+
             const spy = makeSpy();
             lock.onAcquire(spy);
             await lock.init();
-            await new Promise(res => setTimeout(res, ACQUIRE_INTERVAL * 4 + 5));
+
+            // Four intervals, and the handler must still have fired once: the
+            // first tick acquires, and every tick after it returns early on
+            // `acquired`. Four is the point of the test, so it is ticked four
+            // times rather than trusted to a sleep long enough to cover them.
+            await tickAcquireIntervals(4);
 
             assert.equal(spy.calledOnce, true);
         });
