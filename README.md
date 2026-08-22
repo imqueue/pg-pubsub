@@ -5,11 +5,11 @@
     </a>
 </h1>
 <div align="center">
-    <a href="https://github.com/imqueue/pg-pubsub">
+    <a href="https://github.com/imqueue/pg-pubsub/actions/workflows/build.yml">
         <img src="https://img.shields.io/github/actions/workflow/status/imqueue/pg-pubsub/build.yml" alt="Build Status">
     </a>
-    <a href="https://codebeat.co/projects/github-com-imqueue-pg-pubsub-master">
-        <img src="https://codebeat.co/badges/579f6d7c-df61-4bc2-aa2e-d4fa9a3abf5a" alt="Codebeat Grade">
+    <a href="https://www.npmjs.com/package/@imqueue/pg-pubsub">
+        <img src="https://img.shields.io/npm/v/@imqueue/pg-pubsub" alt="npm version">
     </a>
     <a href="https://codeclimate.com/github/imqueue/pg-pubsub/maintainability">
         <img src="https://api.codeclimate.com/v1/badges/22de50ce1d4b1e44c0ad/maintainability">
@@ -20,8 +20,8 @@
     <a href="https://coveralls.io/github/imqueue/pg-pubsub?branch=master">
         <img src="https://coveralls.io/repos/github/imqueue/pg-pubsub/badge.svg?branch=master" alt="Coverage Status">
     </a>
-    <a href="https://rawgit.com/imqueue/pg-pubsub/master/LICENSE">
-        <img src="https://img.shields.io/badge/license-GPL-blue.svg" alt="Coverage Status">
+    <a href="https://github.com/imqueue/pg-pubsub/blob/master/LICENSE">
+        <img src="https://img.shields.io/badge/license-GPL-blue.svg" alt="License">
     </a>
 </div>
 <hr>
