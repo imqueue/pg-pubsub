@@ -1,0 +1,22 @@
+# Fails this push or PR if a commit carries AI attribution, or if a
+# vendor-locked agent config file (CLAUDE.md and friends) is committed.
+#
+# The rules live in imqueue/.github/.github/workflows/no-ai-attribution.yml.
+# They exist because GitHub renders a `Co-Authored-By: Claude ...` trailer as a
+# second author on the commit page — 148 such commits were rewritten out of this
+# org's history, and this check is what stops them coming back.
+#
+# The half that actually blocks is local: a commit-msg and pre-push hook running
+# the same rules. This is the backstop for --no-verify, a machine without the
+# hooks, and the GitHub web editor.
+
+name: No AI attribution
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+
+jobs:
+  attribution:
+    uses: imqueue/.github/.github/workflows/no-ai-attribution.yml@master
