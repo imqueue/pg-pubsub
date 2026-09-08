@@ -27,7 +27,12 @@ jobs:
         with:
           path-to-signatures: 'signatures/version1/cla.json'
           path-to-document: 'https://github.com/imqueue/.github/blob/master/CONTRIBUTION-TERMS.md'
-          branch: 'master'
+          # NOT master, and not any branch that gains a ruleset later. The
+          # bot writes this file with a direct commit, which cannot satisfy the
+          # status check the default branch requires — every signature failed
+          # to record, so no outside contribution could be merged. The branch
+          # holds the signature file and nothing else.
+          branch: 'cla-signatures'
           allowlist: 'dependabot[bot],*[bot]'
           custom-notsigned-prcomment: >-
             Thank you for your contribution to **@imqueue**. Before this pull
